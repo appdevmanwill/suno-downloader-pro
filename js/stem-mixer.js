@@ -6,9 +6,11 @@
 import { AudioConverter } from './audio-converter.js?v=2026.4';
 
 export class StemMixer {
+  static TWO_STEM_TRACKS = ['vocals', 'instrumental'];
   static STANDARD_TRACKS = ['vocals', 'drums', 'bass', 'other'];
   static SPLIT_TRACKS = ['lead_vocals', 'backing_vocals', 'drums', 'bass', 'other'];
-  static TRACK_KEYS = ['vocals', 'lead_vocals', 'backing_vocals', 'drums', 'bass', 'other'];
+  static VOCAL_SPLIT_TRACKS = ['lead_vocals', 'backing_vocals', 'instrumental'];
+  static TRACK_KEYS = ['vocals', 'lead_vocals', 'backing_vocals', 'instrumental', 'drums', 'bass', 'other'];
 
   constructor(onTick = () => {}) {
     this.stems = null; // { vocals, lead_vocals, backing_vocals, drums, bass, other, instrumental }
@@ -18,11 +20,13 @@ export class StemMixer {
     this.startCtxTime = 0;
     this.onTick = onTick;
     this.isVocalSplit = false;
+    this.targetMode = '4-stem'; // '2-stem' | '4-stem' | 'vocal-split' | '5-stem'
 
     this.state = {
       vocals: { volume: 1.0, muted: false, solo: false },
       lead_vocals: { volume: 1.0, muted: false, solo: false },
       backing_vocals: { volume: 1.0, muted: false, solo: false },
+      instrumental: { volume: 1.0, muted: false, solo: false },
       drums: { volume: 1.0, muted: false, solo: false },
       bass: { volume: 1.0, muted: false, solo: false },
       other: { volume: 1.0, muted: false, solo: false }
@@ -35,10 +39,27 @@ export class StemMixer {
   }
 
   getActiveTrackKeys() {
+    if (this.targetMode === '2-stem') {
+      return StemMixer.TWO_STEM_TRACKS;
+    }
+    if (this.targetMode === 'vocal-split') {
+      return StemMixer.VOCAL_SPLIT_TRACKS;
+    }
+    if (this.targetMode === '5-stem') {
+      return StemMixer.SPLIT_TRACKS;
+    }
     if (this.isVocalSplit && this.stems && this.stems.lead_vocals && this.stems.backing_vocals) {
       return StemMixer.SPLIT_TRACKS;
     }
     return StemMixer.STANDARD_TRACKS;
+  }
+
+  setTargetMode(mode) {
+    const wasPlaying = this.isPlaying;
+    if (wasPlaying) this.pause();
+    this.targetMode = mode || '4-stem';
+    this.syncLiveGains();
+    if (wasPlaying) this.play();
   }
 
   setVocalSplit(active) {
@@ -51,17 +72,17 @@ export class StemMixer {
 
   /**
    * Loads a multi-stem bundle into the console
-   * @param {Object} stemBundle - { vocals, lead_vocals, backing_vocals, drums, bass, other }
+   * @param {Object} stemBundle - { vocals, lead_vocals, backing_vocals, drums, bass, other, instrumental }
    */
   loadStems(stemBundle) {
     this.stop();
     this.stems = stemBundle;
-    const ref = stemBundle.vocals || stemBundle.lead_vocals || stemBundle.drums || stemBundle.bass || stemBundle.other;
+    const ref = stemBundle.vocals || stemBundle.lead_vocals || stemBundle.instrumental || stemBundle.drums || stemBundle.bass || stemBundle.other;
     this.duration = ref ? ref.duration : 0;
     this.offsetSec = 0;
     this.isVocalSplit = Boolean(stemBundle.lead_vocals && stemBundle.backing_vocals);
 
-    const allKeys = ['vocals', 'lead_vocals', 'backing_vocals', 'drums', 'bass', 'other'];
+    const allKeys = ['vocals', 'lead_vocals', 'backing_vocals', 'instrumental', 'drums', 'bass', 'other'];
     for (const k of allKeys) {
       this.state[k] = { volume: 1.0, muted: false, solo: false };
     }
@@ -139,30 +160,48 @@ export class StemMixer {
       this.state[k].solo = false;
     }
 
+    if (this.targetMode === '2-stem') {
+      if (preset === 'acapella') {
+        this.state.vocals.solo = true;
+        this.state.instrumental.muted = true;
+      } else if (preset === 'karaoke') {
+        this.state.vocals.muted = true;
+        this.state.instrumental.solo = true;
+      } else if (preset === 'voice_boost') {
+        this.state.vocals.volume = 1.35;
+        this.state.instrumental.volume = 0.65;
+      } else if (preset === 'backing') {
+        this.state.vocals.volume = 0.4;
+        this.state.instrumental.volume = 1.0;
+      }
+      this.syncLiveGains();
+      return;
+    }
+
     if (preset === 'acapella') {
-      if (this.isVocalSplit) {
+      if (this.isVocalSplit || this.targetMode === '5-stem') {
         this.state.lead_vocals.solo = true;
         this.state.backing_vocals.solo = true;
       } else {
         this.state.vocals.solo = true;
       }
     } else if (preset === 'karaoke') {
-      if (this.isVocalSplit) {
+      if (this.isVocalSplit || this.targetMode === '5-stem') {
         this.state.lead_vocals.muted = true;
         this.state.backing_vocals.muted = true;
       } else {
         this.state.vocals.muted = true;
       }
     } else if (preset === 'drumless') {
-      this.state.drums.muted = true;
+      if (this.state.drums) this.state.drums.muted = true;
     } else if (preset === 'rhythm') {
-      if (this.isVocalSplit) {
+      if (this.isVocalSplit || this.targetMode === '5-stem') {
         this.state.lead_vocals.muted = true;
         this.state.backing_vocals.muted = true;
       } else {
         this.state.vocals.muted = true;
       }
-      this.state.other.muted = true;
+      if (this.state.other) this.state.other.muted = true;
     }
 
     this.syncLiveGains();

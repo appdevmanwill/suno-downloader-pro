@@ -798,29 +798,10 @@ class App {
       await this.refreshVaultSummary(true);
 
       this.stemMixer.loadStems(stemBundle);
-      this.syncStemConsoleControls('full');
 
-      const hasSplit = Boolean(stemBundle.lead_vocals && stemBundle.backing_vocals);
-      const stripVocals = document.getElementById('stem-strip-vocals');
-      const stripLead = document.getElementById('stem-strip-lead_vocals');
-      const stripBacking = document.getElementById('stem-strip-backing_vocals');
-      const splitBtn = document.getElementById('btnSplitVocals');
-
-      if (stripVocals) stripVocals.style.display = hasSplit ? 'none' : 'flex';
-      if (stripLead) stripLead.style.display = hasSplit ? 'flex' : 'none';
-      if (stripBacking) stripBacking.style.display = hasSplit ? 'flex' : 'none';
-
-      if (splitBtn) {
-        if (hasSplit) {
-          splitBtn.textContent = '✓ Split (Lead & Backing)';
-          splitBtn.classList.remove('btn-cyan');
-          splitBtn.classList.add('btn-secondary');
-        } else {
-          splitBtn.textContent = '🎙️ Split Vocals (Lead / Backing)';
-          splitBtn.classList.add('btn-cyan');
-          splitBtn.classList.remove('btn-secondary');
-        }
-      }
+      const targetModeSelect = document.getElementById('stemTargetMode');
+      const targetMode = (targetModeSelect && targetModeSelect.value) || '2-stem';
+      this.handleStemTargetModeChange(targetMode, false);
 
       if (engineBadge) engineBadge.textContent = `✓ ${stemBundle.engine || 'HTDemucs v4'}`;
       if (progressBar) progressBar.style.width = '100%';
@@ -834,6 +815,108 @@ class App {
       this.showToast(`Stem separation error: ${e.message}`, 'rose');
     } finally {
       if (rerunBtn) rerunBtn.disabled = false;
+    }
+  }
+
+  handleStemTargetModeChange(mode, showNotification = true) {
+    if (!this.stemMixer) return;
+    this.stemMixer.setTargetMode(mode);
+    const select = document.getElementById('stemTargetMode');
+    if (select && select.value !== mode) select.value = mode;
+
+    const titleEl = document.getElementById('stemsModalTitle');
+    const songTitle = this.activeStemsSong ? this.activeStemsSong.title : '';
+
+    const stripVocals = document.getElementById('stem-strip-vocals');
+    const stripLead = document.getElementById('stem-strip-lead_vocals');
+    const stripBacking = document.getElementById('stem-strip-backing_vocals');
+    const stripInstrumental = document.getElementById('stem-strip-instrumental');
+    const stripDrums = document.getElementById('stem-strip-drums');
+    const stripBass = document.getElementById('stem-strip-bass');
+    const stripOther = document.getElementById('stem-strip-other');
+    const splitBtn = document.getElementById('btnSplitVocals');
+
+    const chipDrumless = document.getElementById('chip-preset-drumless');
+    const chipRhythm = document.getElementById('chip-preset-rhythm');
+    const chipBoost = document.getElementById('chip-preset-boost');
+
+    const cached = this.activeStemsSong ? StorageManager.getCachedBuffer(this.activeStemsSong.uuid) : null;
+    const stems = cached && cached.stems ? cached.stems : (this.stemMixer.stems || {});
+    const hasSplit = Boolean(stems.lead_vocals && stems.backing_vocals);
+
+    if (mode === '2-stem') {
+      if (titleEl) titleEl.textContent = `2-Stem Studio (Vocals + Instrumental): ${songTitle}`;
+      if (stripVocals) stripVocals.style.display = 'flex';
+      if (stripInstrumental) stripInstrumental.style.display = 'flex';
+      if (stripLead) stripLead.style.display = 'none';
+      if (stripBacking) stripBacking.style.display = 'none';
+      if (stripDrums) stripDrums.style.display = 'none';
+      if (stripBass) stripBass.style.display = 'none';
+      if (stripOther) stripOther.style.display = 'none';
+      if (splitBtn) splitBtn.style.display = 'none';
+      if (chipDrumless) chipDrumless.style.display = 'none';
+      if (chipRhythm) chipRhythm.style.display = 'none';
+      if (chipBoost) chipBoost.style.display = 'inline-block';
+      this.stemMixer.applyPreset('full');
+      this.syncStemConsoleControls('full');
+      if (showNotification) this.showToast('2-Stem Mode Active (Vocals + Clean Instrumental)!', 'emerald');
+    } else if (mode === 'vocal-split') {
+      if (titleEl) titleEl.textContent = `Vocal Demix Console (Lead + Backing): ${songTitle}`;
+      if (chipDrumless) chipDrumless.style.display = 'none';
+      if (chipRhythm) chipRhythm.style.display = 'none';
+      if (chipBoost) chipBoost.style.display = 'none';
+      if (splitBtn) splitBtn.style.display = 'inline-flex';
+      if (!hasSplit) {
+        this.splitCurrentVocals();
+      } else {
+        if (stripVocals) stripVocals.style.display = 'none';
+        if (stripLead) stripLead.style.display = 'flex';
+        if (stripBacking) stripBacking.style.display = 'flex';
+        if (stripInstrumental) stripInstrumental.style.display = 'flex';
+        if (stripDrums) stripDrums.style.display = 'none';
+        if (stripBass) stripBass.style.display = 'none';
+        if (stripOther) stripOther.style.display = 'none';
+        this.stemMixer.applyPreset('full');
+        this.syncStemConsoleControls('full');
+        if (showNotification) this.showToast('Vocal Demix Mode Active (Lead + Backing Harmonies)!', 'emerald');
+      }
+    } else if (mode === '5-stem') {
+      if (titleEl) titleEl.textContent = `5-Stem Studio Kit (All Tracks): ${songTitle}`;
+      if (chipDrumless) chipDrumless.style.display = 'inline-block';
+      if (chipRhythm) chipRhythm.style.display = 'inline-block';
+      if (chipBoost) chipBoost.style.display = 'none';
+      if (splitBtn) splitBtn.style.display = 'inline-flex';
+      if (!hasSplit) {
+        this.splitCurrentVocals();
+      } else {
+        if (stripVocals) stripVocals.style.display = 'none';
+        if (stripLead) stripLead.style.display = 'flex';
+        if (stripBacking) stripBacking.style.display = 'flex';
+        if (stripInstrumental) stripInstrumental.style.display = 'none';
+        if (stripDrums) stripDrums.style.display = 'flex';
+        if (stripBass) stripBass.style.display = 'flex';
+        if (stripOther) stripOther.style.display = 'flex';
+        this.stemMixer.applyPreset('full');
+        this.syncStemConsoleControls('full');
+        if (showNotification) this.showToast('5-Stem Studio Kit Mode Active (All Tracks)!', 'emerald');
+      }
+    } else {
+      // 4-stem mode
+      if (titleEl) titleEl.textContent = `4-Stem Neural Console: ${songTitle}`;
+      if (stripVocals) stripVocals.style.display = 'flex';
+      if (stripLead) stripLead.style.display = 'none';
+      if (stripBacking) stripBacking.style.display = 'none';
+      if (stripInstrumental) stripInstrumental.style.display = 'none';
+      if (stripDrums) stripDrums.style.display = 'flex';
+      if (stripBass) stripBass.style.display = 'flex';
+      if (stripOther) stripOther.style.display = 'flex';
+      if (splitBtn) splitBtn.style.display = 'inline-flex';
+      if (chipDrumless) chipDrumless.style.display = 'inline-block';
+      if (chipRhythm) chipRhythm.style.display = 'inline-block';
+      if (chipBoost) chipBoost.style.display = 'none';
+      this.stemMixer.applyPreset('full');
+      this.syncStemConsoleControls('full');
+      if (showNotification) this.showToast('4-Stem Mode Active (Vocals, Drums, Bass, Melodies)!', 'emerald');
     }
   }
 
@@ -1024,31 +1107,36 @@ class App {
     }
   }
 
-  async downloadAllStemsZip(format = 'wav') {
+  async downloadStemsZip(format = 'wav', mode = '2-stem') {
     if (!this.activeStemsSong) return;
     const song = this.activeStemsSong;
     const cached = StorageManager.getCachedBuffer(song.uuid);
     if (!cached || !cached.stems) return;
 
-    const btnId = format === 'wav' ? 'btnStemsZipWav' : 'btnStemsZipMp3';
+    const btnId = mode === '2-stem'
+      ? (format === 'wav' ? 'btnZip2StemWav' : 'btnZip2StemMp3')
+      : (format === 'wav' ? 'btnStemsZipWav' : 'btnStemsZipMp3');
     this.setBtnLoading(btnId, true, 'Packaging 0%...');
 
     try {
       const zipBlob = await ZipPackager.buildStemsZip(song, cached.stems, format, (pct, msg) => {
         this.setBtnLoading(btnId, true, `${pct}% ${msg.slice(0, 18)}...`);
-      });
-      const hasSplit = Boolean(cached.stems.lead_vocals && cached.stems.backing_vocals);
-      const filename = this.makeSafeFilename(
-        `${song.title} - ${hasSplit ? '6 Stems Studio Kit' : '5 Stems Kit'} (${format.toUpperCase()})`,
-        'zip'
-      );
+      }, mode);
+
+      const label = mode === '2-stem' ? '2-Stem Kit' : 'Neural Stems Kit';
+      const filename = this.makeSafeFilename(`${song.title} - ${label} (${format.toUpperCase()})`, 'zip');
       this.triggerDownload(zipBlob, filename);
-      this.showToast(`Downloaded Complete Neural Stems ZIP: "${filename}"`, 'emerald');
+      this.showToast(`Downloaded ${label} ZIP: "${filename}"`, 'emerald');
     } catch (e) {
       this.showToast(`Stems ZIP failed: ${e.message}`, 'rose');
     } finally {
       this.setBtnLoading(btnId, false);
     }
+  }
+
+  async downloadAllStemsZip(format = 'wav') {
+    const mode = (this.stemMixer && this.stemMixer.targetMode === '2-stem') ? '2-stem' : 'auto';
+    return this.downloadStemsZip(format, mode);
   }
 
   /* =========================================================================
@@ -3077,13 +3165,13 @@ class App {
               class="dl-button-card"
               style="background:rgba(6,182,212,0.13);border-color:rgba(6,182,212,0.38)"
               onclick="app.openStemsStudio('${song.uuid}')"
-              title="Separate Vocals, Drums, Bass & Melodies with Meta HTDemucs v4 Neural AI"
+              title="Separate Vocals & Instrumental (2-Stem) or Full 4-Stem/5-Stem Studio Kit"
             >
               <div class="dl-btn-format">
-                <span style="color:#67e8f9">4-Stem AI</span>
+                <span style="color:#67e8f9">2 / 4 Stem AI</span>
                 <span>🎛️</span>
               </div>
-              <span class="dl-btn-desc">HTDemucs v4 Mixer</span>
+              <span class="dl-btn-desc">Vocals + Stems</span>
             </button>
 
             <button

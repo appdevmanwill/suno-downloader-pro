@@ -31,30 +31,40 @@ export class ZipPackager {
    * @param {Object} stems - { vocals, drums, bass, other, instrumental } AudioBuffers
    * @param {'wav'|'mp3'} [format='wav']
    * @param {Function} [onProgress] - (percent, text)
+   * @param {'auto'|'2-stem'|'4-stem'|'5-stem'} [mode='auto']
    * @returns {Promise<Blob>}
    */
-  static async buildStemsZip(song, stems, format = 'wav', onProgress = () => {}) {
+  static async buildStemsZip(song, stems, format = 'wav', onProgress = () => {}, mode = 'auto') {
     const zip = ZipPackager.ensureJSZip();
     const base = ZipPackager.safeName(song.title);
-    const folder = zip.folder(`${base} - Neural Stems`);
+    const folderLabel = mode === '2-stem' ? '2-Stem Kit' : 'Neural Stems';
+    const folder = zip.folder(`${base} - ${folderLabel}`);
 
     const hasSplitVocals = Boolean(stems.lead_vocals && stems.backing_vocals);
-    const items = hasSplitVocals
-      ? [
-          { key: 'lead_vocals', name: `01 - ${base} (Lead Vocals)` },
-          { key: 'backing_vocals', name: `02 - ${base} (Backing Harmonies)` },
-          { key: 'drums', name: `03 - ${base} (Drums)` },
-          { key: 'bass', name: `04 - ${base} (Bass)` },
-          { key: 'other', name: `05 - ${base} (Other - Melodies)` },
-          { key: 'instrumental', name: `06 - ${base} (Full Instrumental)` }
-        ]
-      : [
-          { key: 'vocals', name: `01 - ${base} (Vocals)` },
-          { key: 'drums', name: `02 - ${base} (Drums)` },
-          { key: 'bass', name: `03 - ${base} (Bass)` },
-          { key: 'other', name: `04 - ${base} (Other - Melodies)` },
-          { key: 'instrumental', name: `05 - ${base} (Full Instrumental)` }
-        ];
+    let items;
+    if (mode === '2-stem') {
+      items = [
+        { key: 'vocals', name: `01 - ${base} (Vocals)` },
+        { key: 'instrumental', name: `02 - ${base} (Instrumental)` }
+      ];
+    } else if (hasSplitVocals || mode === '5-stem') {
+      items = [
+        { key: 'lead_vocals', name: `01 - ${base} (Lead Vocals)` },
+        { key: 'backing_vocals', name: `02 - ${base} (Backing Harmonies)` },
+        { key: 'drums', name: `03 - ${base} (Drums)` },
+        { key: 'bass', name: `04 - ${base} (Bass)` },
+        { key: 'other', name: `05 - ${base} (Other - Melodies)` },
+        { key: 'instrumental', name: `06 - ${base} (Full Instrumental)` }
+      ];
+    } else {
+      items = [
+        { key: 'vocals', name: `01 - ${base} (Vocals)` },
+        { key: 'drums', name: `02 - ${base} (Drums)` },
+        { key: 'bass', name: `03 - ${base} (Bass)` },
+        { key: 'other', name: `04 - ${base} (Other - Melodies)` },
+        { key: 'instrumental', name: `05 - ${base} (Full Instrumental)` }
+      ];
+    }
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];

@@ -316,25 +316,35 @@
   </main>
 
   <!-- ===================================================================== -->
-  <!-- 4-STEM NEURAL AI CONSOLE MODAL (META HTDEMUCS v4)                     -->
+  <!-- NEURAL AI STEM STUDIO (2-STEM & 4-STEM HTDEMUCS v4)                   -->
   <!-- ===================================================================== -->
   <div id="stemsModal" class="modal-overlay">
     <div class="modal-content stems-modal-content">
       <div class="modal-header">
         <div class="modal-title">
           <span>🎛️</span>
-          <span id="stemsModalTitle">4-Stem Neural AI Console</span>
+          <span id="stemsModalTitle">Neural AI Stem Studio</span>
         </div>
         <button data-close-modal class="btn btn-ghost btn-icon">✕</button>
       </div>
 
       <p style="font-size:0.83rem;color:var(--text-secondary);line-height:1.45">
-        True neural source separation powered by <strong>Meta HTDemucs v4</strong>. Isolates <strong>Vocals</strong>, <strong>Drums</strong>, <strong>Bass</strong>, and <strong>Other Melodies</strong> with zero fake Mid/Side vocal bleed, and caches separated stems in your Offline Vault.
+        Neural source separation powered by <strong>Meta HTDemucs v4</strong>. Choose <strong>2-Stem Mode</strong> (Vocals + Clean Instrumental), <strong>4-Stem Studio</strong> (Vocals, Drums, Bass, Melodies), or <strong>Vocal Demixing</strong> (Lead + Backing Harmonies).
       </p>
 
-      <!-- Hybrid Engine Toolbar -->
-      <div class="engine-toolbar">
-        <div style="display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap">
+      <!-- Hybrid Engine & Stem Mode Toolbar -->
+      <div class="engine-toolbar" style="gap:0.75rem;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap">
+          <label for="stemTargetMode" style="font-size:0.76rem;font-weight:700;color:#67e8f9">Stem Mode:</label>
+          <select id="stemTargetMode" class="studio-select" onchange="app.handleStemTargetModeChange(this.value)">
+            <option value="2-stem">✌️ 2-Stem (Vocals + Instrumental)</option>
+            <option value="4-stem" selected>🎛️ 4-Stem (Vocals, Drums, Bass, Melodies)</option>
+            <option value="vocal-split">🎙️ Vocal Demix (Lead + Backing)</option>
+            <option value="5-stem">📦 5-Stem Studio Kit (All Tracks)</option>
+          </select>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:0.45rem;flex-wrap:wrap">
           <label for="stemEngineMode" style="font-size:0.76rem;font-weight:700;color:var(--text-secondary)">AI Engine:</label>
           <select id="stemEngineMode" class="studio-select">
             <option value="auto">⚡ Auto Hybrid (Local PyTorch → In-Browser WebGPU/WASM)</option>
@@ -343,7 +353,7 @@
           </select>
         </div>
 
-        <div style="display:flex;align-items:center;gap:0.5rem">
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-left:auto">
           <span id="stemActiveEngineBadge" class="badge-pill badge-emerald">HTDemucs v4</span>
           <button
             id="btnReseparateStems"
@@ -399,13 +409,14 @@
             <span id="stemMixTimeText" class="transport-time">0:00 / 0:00</span>
           </div>
 
-          <div class="preset-chips-row">
+          <div class="preset-chips-row" id="presetChipsRow">
             <span style="font-size:0.72rem;font-weight:700;color:var(--text-muted);margin-right:0.2rem">Quick Mix:</span>
-            <button class="preset-chip active" data-stem-preset="full" onclick="app.applyStemPreset('full')">🎚️ Full Mix</button>
-            <button class="preset-chip" data-stem-preset="acapella" onclick="app.applyStemPreset('acapella')">🎤 Acapella (Voice Only)</button>
-            <button class="preset-chip" data-stem-preset="karaoke" onclick="app.applyStemPreset('karaoke')">🎸 Karaoke (No Voice)</button>
-            <button class="preset-chip" data-stem-preset="drumless" onclick="app.applyStemPreset('drumless')">🥁 Drumless</button>
-            <button class="preset-chip" data-stem-preset="rhythm" onclick="app.applyStemPreset('rhythm')">🔊 Rhythm (Drums+Bass)</button>
+            <button class="preset-chip active" id="chip-preset-full" data-stem-preset="full" onclick="app.applyStemPreset('full')">🎚️ Balanced Mix</button>
+            <button class="preset-chip" id="chip-preset-acapella" data-stem-preset="acapella" onclick="app.applyStemPreset('acapella')">🎤 Acapella (Voice Only)</button>
+            <button class="preset-chip" id="chip-preset-karaoke" data-stem-preset="karaoke" onclick="app.applyStemPreset('karaoke')">🎸 Karaoke (No Voice)</button>
+            <button class="preset-chip" id="chip-preset-boost" data-stem-preset="voice_boost" onclick="app.applyStemPreset('voice_boost')">🔊 Voice Boost</button>
+            <button class="preset-chip" id="chip-preset-drumless" data-stem-preset="drumless" onclick="app.applyStemPreset('drumless')">🥁 Drumless</button>
+            <button class="preset-chip" id="chip-preset-rhythm" data-stem-preset="rhythm" onclick="app.applyStemPreset('rhythm')">🔊 Rhythm (D+B)</button>
             <button
               id="btnSplitVocals"
               onclick="app.splitCurrentVocals()"
@@ -440,6 +451,29 @@
             <div class="stem-dl-pair">
               <button class="btn btn-cyan btn-sm" onclick="app.downloadStemTrack('vocals', 'wav')">WAV</button>
               <button class="btn btn-secondary btn-sm" onclick="app.downloadStemTrack('vocals', 'mp3')">MP3</button>
+            </div>
+          </div>
+
+          <!-- Strip 0: Full Instrumental (used in 2-Stem & Vocal Demix Modes) -->
+          <div class="stem-strip" id="stem-strip-instrumental" style="display:none;background:rgba(168,85,247,0.06);border-color:rgba(168,85,247,0.3)">
+            <div class="stem-track-label">
+              <span class="stem-dot" style="background:#c084fc;box-shadow:0 0 8px #c084fc"></span>
+              <span>🎸 Full Instrumental</span>
+            </div>
+            <div class="stem-ms-group">
+              <button id="stem-mute-instrumental" class="btn-ms mute-btn" onclick="app.toggleStemMute('instrumental')" title="Mute Instrumental">M</button>
+              <button id="stem-solo-instrumental" class="btn-ms solo-btn" onclick="app.toggleStemSolo('instrumental')" title="Solo Instrumental">S</button>
+            </div>
+            <div class="stem-fader-col">
+              <div class="stem-fader-row">
+                <input type="range" id="stem-fader-instrumental" class="stem-fader" min="0" max="150" value="100" oninput="app.setStemVolume('instrumental', this.value)" />
+                <span id="stem-gain-instrumental" class="stem-gain-val">100%</span>
+              </div>
+              <div class="stem-meter-track"><div id="stem-meter-instrumental" class="stem-meter-fill"></div></div>
+            </div>
+            <div class="stem-dl-pair">
+              <button class="btn btn-purple btn-sm" onclick="app.downloadStemTrack('instrumental', 'wav')">WAV</button>
+              <button class="btn btn-secondary btn-sm" onclick="app.downloadStemTrack('instrumental', 'mp3')">MP3</button>
             </div>
           </div>
 
@@ -560,7 +594,13 @@
         </div>
 
         <!-- Master Stem Exports -->
-        <div class="stem-export-grid">
+        <div class="stem-export-grid" id="stemExportGrid">
+          <button id="btnZip2StemWav" class="btn btn-cyan" onclick="app.downloadStemsZip('wav', '2-stem')">
+            ✌️ 2-Stem Kit (.ZIP WAV)
+          </button>
+          <button id="btnZip2StemMp3" class="btn btn-secondary" onclick="app.downloadStemsZip('mp3', '2-stem')">
+            ✌️ 2-Stem Kit (.ZIP MP3)
+          </button>
           <button class="btn btn-purple" onclick="app.downloadStemTrack('instrumental', 'wav')">
             🎸 Full Instrumental (WAV)
           </button>
@@ -574,10 +614,10 @@
             🎛️ Custom Fader Mix (MP3 + ID3)
           </button>
           <button id="btnStemsZipWav" class="btn btn-primary" onclick="app.downloadAllStemsZip('wav')">
-            📦 All 5 Stems Kit (.ZIP WAV)
+            📦 All Stems Kit (.ZIP WAV)
           </button>
           <button id="btnStemsZipMp3" class="btn btn-secondary" onclick="app.downloadAllStemsZip('mp3')">
-            📦 All 5 Stems Kit (.ZIP MP3)
+            📦 All Stems Kit (.ZIP MP3)
           </button>
         </div>
       </div>
