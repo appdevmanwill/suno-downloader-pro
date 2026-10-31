@@ -1,9 +1,9 @@
 /**
- * NTK Hub • Suno Studio - PWA Service Worker
- * Provides offline app-shell caching while keeping API and streaming endpoints network-direct.
+ * NTK OmniStream Studio - Universal PWA Service Worker
+ * Provides offline app-shell caching while keeping streaming and API endpoints network-direct.
  */
 
-const CACHE_NAME = 'ntk-hub-suno-studio-v2026-4';
+const CACHE_NAME = 'ntk-omnistream-studio-v2026-5';
 
 const APP_SHELL_ASSETS = [
   './',
@@ -21,6 +21,8 @@ const APP_SHELL_ASSETS = [
   './lib/demucs-web/fft.js',
   './lib/demucs-web/processor.js',
   './js/app.js',
+  './js/omni-api.js',
+  './js/video-demuxer.js',
   './js/suno-api.js',
   './js/crypto-engine.js',
   './js/audio-converter.js',
@@ -70,7 +72,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Network-first with offline cache fallback so static deployments stay fresh and work offline
+  // Network-first with offline cache fallback
   event.respondWith(
     fetch(req)
       .then((networkRes) => {

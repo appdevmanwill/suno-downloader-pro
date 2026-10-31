@@ -1,23 +1,25 @@
 /**
- * Suno Downloader Pro - Main Application Orchestrator
- * 2026 Studio Edition (HTDemucs v4 4-Stem Neural AI, Trimmer & FX, ID3v2.3, ZIP, Karaoke Video & PWA Vault)
+ * NTK OmniStream Studio - Universal Media Downloader & Neural Stem Separator
+ * Main Application Orchestrator
  */
 
-import { SunoAPI } from './suno-api.js?v=2026.4';
-import { CryptoEngine } from './crypto-engine.js?v=2026.4';
-import { AudioConverter } from './audio-converter.js?v=2026.4';
-import { Mp3Encoder } from './mp3-encoder.js?v=2026.4';
-import { ID3Writer } from './id3-writer.js?v=2026.4';
-import { LyricsUtils } from './lyrics-utils.js?v=2026.4';
-import { VaultDB } from './vault-db.js?v=2026.4';
-import { StemEngine } from './stem-engine.js?v=2026.4';
-import { StemMixer } from './stem-mixer.js?v=2026.4';
-import { AudioFXEngine } from './audio-fx.js?v=2026.4';
-import { ZipPackager } from './zip-packager.js?v=2026.4';
-import { VideoGenerator } from './video-generator.js?v=2026.4';
-import { BookmarkletEngine } from './bookmarklet.js?v=2026.4';
-import { StorageManager } from './storage.js?v=2026.4';
-import { PlayerEngine } from './player.js?v=2026.4';
+import { OmniAPI } from './omni-api.js?v=2026.5';
+import { VideoDemuxer } from './video-demuxer.js?v=2026.5';
+import { SunoAPI } from './suno-api.js?v=2026.5';
+import { CryptoEngine } from './crypto-engine.js?v=2026.5';
+import { AudioConverter } from './audio-converter.js?v=2026.5';
+import { Mp3Encoder } from './mp3-encoder.js?v=2026.5';
+import { ID3Writer } from './id3-writer.js?v=2026.5';
+import { LyricsUtils } from './lyrics-utils.js?v=2026.5';
+import { VaultDB } from './vault-db.js?v=2026.5';
+import { StemEngine } from './stem-engine.js?v=2026.5';
+import { StemMixer } from './stem-mixer.js?v=2026.5';
+import { AudioFXEngine } from './audio-fx.js?v=2026.5';
+import { ZipPackager } from './zip-packager.js?v=2026.5';
+import { VideoGenerator } from './video-generator.js?v=2026.5';
+import { BookmarkletEngine } from './bookmarklet.js?v=2026.5';
+import { StorageManager } from './storage.js?v=2026.5';
+import { PlayerEngine } from './player.js?v=2026.5';
 
 class App {
   constructor() {
@@ -26,6 +28,8 @@ class App {
     this.videoStudio = null;
 
     this.isLocalProxyActive = false;
+    this.isAudioOnlyGrab = false;
+    this.helperStatus = { active: false, ytdl: false, ffmpeg: false, demucs: {} };
     this.localDemucsCaps = { available: false, device: 'cpu', engine: 'none' };
 
     this.activeStudioSong = null;
@@ -273,17 +277,31 @@ class App {
       });
     }
 
+    const chkAudioOnly = document.getElementById('chkAudioOnlyGrab');
+    if (chkAudioOnly) {
+      chkAudioOnly.addEventListener('change', (e) => {
+        this.isAudioOnlyGrab = e.target.checked;
+        this.showToast(this.isAudioOnlyGrab ? 'Data-Saver ON: Grabbing audio streams only' : 'Universal Mode: Video & Audio enabled', 'cyan');
+      });
+    }
+
+    document.getElementById('btnOpenCookies')?.addEventListener('click', () => this.openCookieModal());
+    document.getElementById('btnSaveCookies')?.addEventListener('click', () => this.saveUserCookies());
+    document.getElementById('btnPurgeVault')?.addEventListener('click', () => this.purgeEntireVault());
+    document.getElementById('btnClearVaultStems')?.addEventListener('click', () => this.clearVaultStems());
+    document.getElementById('btnClearVaultMasters')?.addEventListener('click', () => this.clearVaultMasters());
+
     const clearAllBtn = document.getElementById('btnClearAll');
     if (clearAllBtn) {
       clearAllBtn.addEventListener('click', async () => {
-        if (confirm('Clear all songs from your deck and remove cached audio from Offline Vault?')) {
+        if (confirm('Clear all media from your deck and remove cached streams from Offline Vault?')) {
           this.player.pause();
           this.stopAllModalAudio();
           StorageManager.clearAll();
-          await VaultDB.clearAudioVault(false);
+          await VaultDB.clearAll();
           await this.refreshVaultSummary(false);
           this.renderSongs();
-          this.showToast('Cleared song deck and audio cache.', 'amber');
+          this.showToast('Cleared media deck and offline cache.', 'amber');
         }
       });
     }
@@ -322,7 +340,9 @@ class App {
       const files = e.dataTransfer && e.dataTransfer.files;
       if (files && files.length > 0) {
         for (const file of files) {
-          if (/\.(m4a|mp3|wav|flac|ogg|aac)$/i.test(file.name) || file.type.startsWith('audio/')) {
+          if (VideoDemuxer.isVideo(file)) {
+            await this.importVideoFile(file);
+          } else if (/\.(m4a|mp3|wav|flac|ogg|aac|opus)$/i.test(file.name) || file.type.startsWith('audio/')) {
             await this.importAudioFile(file);
           }
         }
@@ -334,9 +354,57 @@ class App {
     const files = event.target && event.target.files;
     if (!files || files.length === 0) return;
     for (const file of files) {
-      await this.importAudioFile(file);
+      if (VideoDemuxer.isVideo(file)) {
+        await this.importVideoFile(file);
+      } else {
+        await this.importAudioFile(file);
+      }
     }
     event.target.value = '';
+  }
+
+  async importVideoFile(file) {
+    try {
+      this.showToast(`Demuxing video "${file.name}"...`, 'cyan');
+      const meta = await VideoDemuxer.demux(file, (pct, msg) => {
+        if (pct < 100) this.showToast(msg, 'cyan');
+      });
+
+      const title = file.name.replace(/\.[^/.]+$/, '');
+      const pseudoUuid = 'video-' + Date.now().toString(16) + '-' + Math.random().toString(16).slice(2, 6);
+      const wavBytes = AudioConverter.encodeWavArrayBuffer(meta.audioBuffer);
+
+      const songObj = {
+        uuid: pseudoUuid,
+        title,
+        artist: 'Local Video Demux',
+        prompt: '',
+        tags: `Video Track • ${meta.width}x${meta.height}`,
+        duration: meta.duration,
+        model: `${Math.round(meta.audioBuffer.sampleRate / 100) / 10}kHz Stereo`,
+        streamUrl: '',
+        imageLarge: meta.thumbnailDataUrl,
+        imageThumb: meta.thumbnailDataUrl,
+        videoUrl: '',
+        platform: 'Video File',
+        hasVideo: true,
+        hasStem: true,
+        showDetails: false,
+        playerMode: 'custom'
+      };
+
+      StorageManager.upsertSong(songObj);
+      StorageManager.setCachedBuffer(pseudoUuid, {
+        decryptedBuffer: wavBytes,
+        audioBuffer: meta.audioBuffer
+      });
+      await VaultDB.saveMaster(pseudoUuid, wavBytes);
+      await this.refreshVaultSummary(false);
+      this.renderSongs();
+      this.showToast(`Ready! Video audio stripped & poster captured for "${title}".`, 'emerald');
+    } catch (err) {
+      this.showToast(`Could not demux video: ${err.message}`, 'rose');
+    }
   }
 
   async importAudioFile(file) {
@@ -351,12 +419,13 @@ class App {
         uuid: pseudoUuid,
         title,
         prompt: '',
-        tags: 'Local Master Audio',
+        tags: 'Local Audio Track',
         duration: audioBuffer.duration,
         model: `${Math.round(audioBuffer.sampleRate / 100) / 10}kHz Stereo`,
         streamUrl: '',
         imageLarge: '',
         videoUrl: '',
+        platform: 'Audio File',
         hasStem: true,
         showDetails: false,
         playerMode: 'custom'
@@ -390,59 +459,94 @@ class App {
   }
 
   async handleVaultClick() {
+    this.openVaultModal();
+  }
+
+  async openVaultModal() {
+    const modal = document.getElementById('vaultModal');
+    if (!modal) return;
     await this.refreshVaultSummary(false);
-    const mastersCount = this.vaultSummary.masterIds.size;
-    const stemsCount = this.vaultSummary.stemIds.size;
-    const modelStatus = this.vaultSummary.hasOnnxModel ? 'Cached Offline (172 MB HTDemucs ONNX)' : 'On-Demand';
+    const sizeEl = document.getElementById('vaultModalSizeText');
+    const mastersEl = document.getElementById('vaultModalMastersCount');
+    const stemsEl = document.getElementById('vaultModalStemsCount');
+    const modelsEl = document.getElementById('vaultModalModelsStatus');
 
-    if (mastersCount === 0 && stemsCount === 0) {
-      this.showToast(`Offline Vault: 0 cached songs • Browser AI Weights: ${modelStatus}`, 'emerald');
-      return;
-    }
+    if (sizeEl) sizeEl.textContent = this.vaultSummary.formattedSize || '0 MB';
+    if (mastersEl) mastersEl.textContent = String(this.vaultSummary.masterIds.size);
+    if (stemsEl) stemsEl.textContent = String(this.vaultSummary.stemIds.size);
+    if (modelsEl) modelsEl.textContent = this.vaultSummary.hasOnnxModel ? 'Cached (172 MB ONNX)' : 'On-Demand';
+    modal.classList.add('open');
+  }
 
-    const msg =
-      `IndexedDB Offline Vault Status:\n` +
-      `• Cached Master Tracks: ${mastersCount}\n` +
-      `• Cached 4-Stem Neural Bundles: ${stemsCount}\n` +
-      `• In-Browser HTDemucs ONNX Model: ${modelStatus}\n\n` +
-      `Click OK to clear cached audio & stems (keeps AI weights), or Cancel to keep everything offline.`;
+  async clearVaultStems() {
+    await VaultDB.clearStore('stems_cache');
+    await this.refreshVaultSummary(true);
+    this.showToast('Cleared separated stems from Offline Vault.', 'amber');
+    this.openVaultModal();
+  }
 
-    if (confirm(msg)) {
-      this.stopAllModalAudio();
-      StorageManager._bufferCache.clear();
-      await VaultDB.clearAudioVault(false);
+  async clearVaultMasters() {
+    await VaultDB.clearStore('audio_masters');
+    await this.refreshVaultSummary(true);
+    this.showToast('Cleared master audio streams from Offline Vault.', 'amber');
+    this.openVaultModal();
+  }
+
+  async purgeEntireVault() {
+    if (confirm('Permanently clear all cached audio, stems, and videos from your browser storage?')) {
+      await VaultDB.clearAll();
+      StorageManager.clearAll();
       await this.refreshVaultSummary(true);
-      this.showToast('Cleared cached audio & stems from Offline Vault.', 'amber');
+      document.getElementById('vaultModal')?.classList.remove('open');
+      this.showToast('Purged entire Offline Vault storage!', 'amber');
     }
   }
 
+  async openCookieModal() {
+    const modal = document.getElementById('cookieModal');
+    if (!modal) return;
+    const textarea = document.getElementById('cookieTextInput');
+    if (textarea) {
+      textarea.value = await VaultDB.getCookies();
+    }
+    modal.classList.add('open');
+  }
+
+  async saveUserCookies() {
+    const textarea = document.getElementById('cookieTextInput');
+    if (!textarea) return;
+    const txt = textarea.value.trim();
+    await VaultDB.saveCookies(txt);
+    try {
+      await OmniAPI.saveCookies(txt);
+    } catch (e) {}
+    this.showToast('Saved user session cookies for private/age-restricted media!', 'emerald');
+    document.getElementById('cookieModal')?.classList.remove('open');
+  }
+
   async checkProxyStatus() {
-    const [proxyOk, demucsCaps] = await Promise.all([
-      SunoAPI.checkLocalProxy(),
+    const [helperCaps, demucsCaps] = await Promise.all([
+      OmniAPI.checkLocalHelper(),
       StemEngine.checkLocalDemucs()
     ]);
 
-    this.isLocalProxyActive = proxyOk;
+    this.helperStatus = helperCaps;
+    this.isLocalProxyActive = helperCaps.active;
     this.localDemucsCaps = demucsCaps;
 
     const statusPill = document.getElementById('proxyStatusPill');
     if (!statusPill) return;
 
-    if (this.isLocalProxyActive && demucsCaps.available) {
+    if (helperCaps.active) {
       statusPill.innerHTML = `
         <span class="status-dot active"></span>
-        <span style="color:#6ee7b7;font-weight:700">Local Proxy + PyTorch HTDemucs v4 (${String(demucsCaps.device).toUpperCase()})</span>
-      `;
-    } else if (this.isLocalProxyActive) {
-      statusPill.innerHTML = `
-        <span class="status-dot active"></span>
-        <span style="color:#6ee7b7;font-weight:700">Local Proxy Active • Browser WebGPU AI Ready</span>
+        <span style="color:#6ee7b7;font-weight:700">OmniHelper Online • yt-dlp ${helperCaps.ytdl ? '✓' : '✗'} • ${demucsCaps.available ? 'PyTorch ' + String(demucsCaps.device).toUpperCase() : 'WebGPU'}</span>
       `;
     } else {
       const hasGpu = typeof navigator !== 'undefined' && 'gpu' in navigator;
       statusPill.innerHTML = `
-        <span class="status-dot" style="background:#38bdf8;box-shadow:0 0 8px #38bdf8"></span>
-        <span style="color:#bae6fd">Static Cloud Mode • ${hasGpu ? 'WebGPU' : 'WASM'} HTDemucs Ready</span>
+        <span class="status-dot" style="background:#06b6d4;box-shadow:0 0 8px #06b6d4"></span>
+        <span style="color:#bae6fd">Static Firebase Mode • Browser ${hasGpu ? 'WebGPU' : 'WASM'} AI Active</span>
       `;
     }
   }
@@ -453,72 +557,61 @@ class App {
     const text = inputArea.value.trim();
 
     if (!text) {
-      this.showToast('Paste one or more Suno song links or playlist URLs first.', 'amber');
+      this.showToast('Paste any video or audio link (YouTube, TikTok, SoundCloud, Suno, etc.) or UUID.', 'amber');
       inputArea.focus();
       return;
     }
 
-    const { playlistUuids, songUuids } = SunoAPI.parseBatchInput(text);
-    if (playlistUuids.length === 0 && songUuids.length === 0) {
-      this.showToast('No valid Suno song or playlist link found (e.g. suno.com/song/... or suno.com/playlist/...).', 'rose');
-      return;
-    }
-
     inputArea.value = '';
+    const lines = text.split(/[\r\n,;\s]+/).map((s) => s.trim()).filter(Boolean);
     let totalAdded = 0;
 
-    // Handle Playlists
-    for (const plId of playlistUuids) {
-      this.showToast(`Fetching Suno playlist ${plId.slice(0, 8)}...`, 'cyan');
+    for (const item of lines) {
+      this.showToast(`Resolving link: ${item.slice(0, 36)}...`, 'cyan');
       try {
-        const plData = await SunoAPI.fetchPlaylist(plId);
-        const plName = plData.name || `Suno Playlist`;
-        const clips = plData.clips || [];
-        for (let i = 0; i < clips.length; i++) {
-          const clip = clips[i];
-          clip.album = plName;
-          clip.trackNumber = `${String(i + 1).padStart(2, '0')}/${String(clips.length).padStart(2, '0')}`;
-          clip.year = clip.year || String(new Date().getFullYear());
-          clip.artist = clip.artist || 'Suno AI Studio';
-          StorageManager.upsertSong(clip);
+        const info = await OmniAPI.resolveUrl(item);
+        if (info.type === 'playlist') {
+          const clips = info.clips || [];
+          for (let i = 0; i < clips.length; i++) {
+            const clip = clips[i];
+            clip.album = info.title || 'Playlist';
+            clip.trackNumber = `${String(i + 1).padStart(2, '0')}/${String(clips.length).padStart(2, '0')}`;
+            clip.year = clip.year || String(new Date().getFullYear());
+            StorageManager.upsertSong(clip);
+            totalAdded++;
+          }
+          this.showToast(`Loaded playlist "${info.title}" (${clips.length} tracks)!`, 'emerald');
+        } else {
+          StorageManager.upsertSong(info);
           totalAdded++;
         }
-        this.showToast(`Loaded playlist "${plName}" (${clips.length} tracks)!`, 'emerald');
       } catch (err) {
-        this.showToast(`Playlist error: ${err.message}`, 'rose');
-      }
-    }
-
-    // Handle Individual Songs
-    if (songUuids.length > 0) {
-      this.showToast(`Resolving ${songUuids.length} individual song(s)...`, 'emerald');
-      for (const uuid of songUuids) {
-        try {
-          const meta = await SunoAPI.fetchMetadata(uuid);
-          meta.playerMode = 'custom';
-          meta.hasStem = true;
-          meta.artist = meta.artist || 'Suno AI Studio';
-          meta.album = meta.album || 'NTK Hub';
-          meta.year = meta.year || String(new Date().getFullYear());
-          StorageManager.upsertSong(meta);
-          totalAdded++;
-        } catch (e) {
-          console.warn(`Failed to resolve ${uuid}:`, e);
+        // Fallback check if Suno UUID
+        const sunoMatch = item.match(OmniAPI.SUNO_UUID_REGEX);
+        if (sunoMatch) {
+          try {
+            const meta = await SunoAPI.fetchMetadata(sunoMatch[0]);
+            meta.playerMode = 'custom';
+            meta.hasStem = true;
+            StorageManager.upsertSong(meta);
+            totalAdded++;
+          } catch (e2) {
+            this.showToast(`Could not resolve "${item}": ${err.message}`, 'rose');
+          }
+        } else {
+          this.showToast(`Error resolving "${item}": ${err.message}`, 'rose');
         }
       }
     }
 
     this.renderSongs();
     if (totalAdded > 0) {
-      this.showToast(`Added ${totalAdded} track(s) to your Studio Deck!`, 'emerald');
+      this.showToast(`Added ${totalAdded} track(s) to NTK OmniStream Deck!`, 'emerald');
     }
   }
 
   /**
-   * Core Decryptor & Vault Pipeline:
-   * 1. In-memory buffer cache
-   * 2. IndexedDB Offline Vault (instant offline restore across page reloads)
-   * 3. Live Mango DRM decryption -> caches permanently to IndexedDB Vault
+   * Universal Decryptor & Stream Extraction Pipeline
    */
   async getDecryptedAudio(uuid, onProgress = () => {}) {
     const cached = StorageManager.getCachedBuffer(uuid);
@@ -540,8 +633,36 @@ class App {
       return payload;
     }
 
-    if (String(uuid).startsWith('local-')) {
-      throw new Error('Local file buffer was cleared. Please re-import the audio file.');
+    if (String(uuid).startsWith('local-') || String(uuid).startsWith('video-')) {
+      throw new Error('Local file buffer was cleared. Please re-import the file.');
+    }
+
+    const storedSong = StorageManager.loadSongs().find((s) => s.uuid === uuid);
+
+    // Universal Media (YouTube, TikTok, SoundCloud, etc.)
+    if (String(uuid).startsWith('omni-') || (storedSong && storedSong.platform && storedSong.platform !== 'Suno AI')) {
+      if (!storedSong || !storedSong.url) {
+        throw new Error('Media URL missing for track.');
+      }
+      onProgress(`Connecting to OmniHelper for stream extraction...`);
+      const isAudioOnly = true;
+      const jobId = await OmniAPI.startDownload(storedSong.url, 'wav', isAudioOnly);
+      const downloadUrl = await OmniAPI.pollJob(jobId, (pct, msg) => {
+        onProgress(`Extracting stream (${pct}%): ${msg}`);
+      });
+      onProgress('Downloading extracted lossless audio stream...');
+      const streamRes = await fetch(downloadUrl);
+      const rawBytes = await streamRes.arrayBuffer();
+      const audioBuffer = await AudioConverter.decodeAudioData(rawBytes);
+      const payload = {
+        decryptedBuffer: rawBytes,
+        audioBuffer,
+        stems: null
+      };
+      StorageManager.setCachedBuffer(uuid, payload);
+      await VaultDB.saveMaster(uuid, rawBytes);
+      await this.refreshVaultSummary(false);
+      return payload;
     }
 
     onProgress('Requesting Mango DRM rights...');
@@ -2960,6 +3081,29 @@ class App {
     }
   }
 
+  getPlatformIcon(platform) {
+    const p = String(platform || '').toLowerCase();
+    if (p.includes('youtube')) return '🔴';
+    if (p.includes('tiktok')) return '🎵';
+    if (p.includes('soundcloud')) return '☁️';
+    if (p.includes('suno')) return '🪄';
+    if (p.includes('video')) return '🎬';
+    if (p.includes('audio')) return '📂';
+    if (p.includes('instagram')) return '📸';
+    if (p.includes('twitter') || p.includes('x')) return '🐦';
+    return '⚡';
+  }
+
+  getPlatformBadgeClass(platform) {
+    const p = String(platform || '').toLowerCase();
+    if (p.includes('youtube')) return 'badge-youtube';
+    if (p.includes('tiktok')) return 'badge-tiktok';
+    if (p.includes('soundcloud')) return 'badge-soundcloud';
+    if (p.includes('suno')) return 'badge-amber';
+    if (p.includes('video')) return 'badge-video';
+    return 'badge-cyan';
+  }
+
   renderSongs() {
     const container = document.getElementById('songsContainer');
     const countBadge = document.getElementById('songCountBadge');
@@ -2972,16 +3116,16 @@ class App {
       container.innerHTML = `
         <div class="card" style="text-align: center; padding: 2.75rem 1.5rem; border-style: dashed;">
           <div style="font-size: 2.4rem; margin-bottom: 0.65rem;">🎛️</div>
-          <h3 style="font-size: 1.12rem; font-weight: 800; margin-bottom: 0.35rem;">Studio Deck Ready</h3>
-          <p style="font-size: 0.85rem; color: var(--text-muted); max-width: 520px; margin: 0 auto 1.25rem;">
-            Paste one or multiple Suno links above to decrypt master audio, or import any local audio file to run Meta HTDemucs v4 4-Stem AI separation, Mastering FX, and 1080p Karaoke Video rendering.
+          <h3 style="font-size: 1.12rem; font-weight: 800; margin-bottom: 0.35rem;">NTK OmniStream Deck Ready</h3>
+          <p style="font-size: 0.85rem; color: var(--text-muted); max-width: 540px; margin: 0 auto 1.25rem;">
+            Paste any streaming link above (YouTube, TikTok, SoundCloud, Suno, Instagram, Twitter/X, direct streams), or drop video and audio files to run Meta HTDemucs v4 2-Stem / 4-Stem AI separation, Mastering FX, and 1080p Karaoke Video rendering.
           </p>
           <div style="display:flex;justify-content:center;gap:0.65rem;flex-wrap:wrap">
             <button class="btn btn-primary btn-sm" onclick="app.pasteAndResolveClipboard()">
               📋 Smart Clipboard Grab
             </button>
             <button class="btn btn-cyan btn-sm" onclick="document.getElementById('localAudioFileInput').click()">
-              📂 Import Local Audio (.m4a / .mp3 / .wav)
+              📂 Import Video or Audio
             </button>
           </div>
         </div>
@@ -2991,8 +3135,8 @@ class App {
 
     container.innerHTML = songs.map((song) => {
       const safeTitle = this.escapeHtml(song.title);
-      const isLocal = String(song.uuid).startsWith('local-');
-      const isOfficialEmbed = !isLocal && song.playerMode === 'suno';
+      const isLocal = String(song.uuid).startsWith('local-') || String(song.uuid).startsWith('video-');
+      const isOfficialEmbed = !isLocal && song.playerMode === 'suno' && song.platform === 'Suno AI';
       const cleanId = song.uuid.toLowerCase().trim();
       const hasVaultMaster = this.vaultSummary.masterIds.has(cleanId);
       const hasVaultStems = this.vaultSummary.stemIds.has(cleanId);
@@ -3007,7 +3151,7 @@ class App {
                 src="${song.imageLarge || fallbackImg}"
                 alt="${safeTitle}"
                 class="song-cover-img"
-                onerror="this.onerror=null;this.src='${isLocal ? fallbackImg : `https://cdn1.suno.ai/image_${song.uuid}.jpeg`}';"
+                onerror="this.onerror=null;this.src='${fallbackImg}';"
               />
             </div>
 
@@ -3030,22 +3174,23 @@ class App {
               </div>
 
               <div class="song-meta-tags">
-                <span class="tag-badge uuid">ID: ${this.escapeHtml(song.uuid.slice(0, 10))}</span>
-                ${song.trackNumber ? `<span class="tag-badge" style="color:#bae6fd;border-color:rgba(56,189,248,0.3)">#${this.escapeHtml(song.trackNumber)}</span>` : ''}
+                <span class="tag-badge ${this.getPlatformBadgeClass(song.platform || 'Universal')}">
+                  ${this.getPlatformIcon(song.platform || 'Universal')} ${this.escapeHtml(song.platform || 'Universal')}
+                </span>
                 ${song.artist ? `<span class="tag-badge" style="color:#fde68a;border-color:rgba(245,158,11,0.3)">👤 ${this.escapeHtml(song.artist)}</span>` : ''}
                 ${song.album ? `<span class="tag-badge" style="color:#a7f3d0;border-color:rgba(16,185,129,0.3)">💿 ${this.escapeHtml(song.album)}</span>` : ''}
-                <span class="tag-badge model">${this.escapeHtml(song.model || 'Suno V3.5')}</span>
-                ${hasVaultMaster ? `<span class="tag-badge vault-master" title="Decrypted master audio cached in IndexedDB Offline Vault">💾 Cached Offline</span>` : ''}
-                ${hasVaultStems ? `<span class="tag-badge vault-stems" title="4 HTDemucs v4 neural stems cached & ready instantly">🎚️ 4 Stems Ready</span>` : ''}
-                ${!isLocal ? `
+                ${song.hasVideo ? `<span class="tag-badge badge-video">🎬 Video</span>` : ''}
+                ${hasVaultMaster ? `<span class="tag-badge vault-master" title="Lossless audio stream cached in IndexedDB Offline Vault">💾 Cached Offline</span>` : ''}
+                ${hasVaultStems ? `<span class="tag-badge vault-stems" title="Neural stems cached & ready instantly">🎚️ Stems Ready</span>` : ''}
+                ${song.url ? `
                   <a
-                    href="https://suno.com/song/${song.uuid}"
+                    href="${this.escapeHtml(song.url)}"
                     target="_blank"
                     rel="noopener noreferrer"
                     class="tag-badge"
                     style="text-decoration:none;color:var(--text-secondary)"
                   >
-                    Suno Page ↗
+                    Source Page ↗
                   </a>
                 ` : ''}
               </div>

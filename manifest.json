@@ -1,14 +1,14 @@
 {
-  "name": "NTK Hub • Suno Studio & Audio Engine",
-  "short_name": "NTK Hub",
-  "description": "NTK Hub high-fidelity Suno AI audio decryptor, HTDemucs v4 4-stem neural separator, waveform trimmer, mastering FX, ID3 tagger, and karaoke video studio.",
+  "name": "NTK OmniStream Studio • Universal Media & Neural Stem Separator",
+  "short_name": "NTK OmniStream",
+  "description": "NTK Hub universal multi-platform media downloader, video & audio demuxer, HTDemucs v4 2-stem and 4-stem neural separator, waveform trimmer, mastering FX, ID3 tagger, and 1080p karaoke video studio.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0a0c13",
-  "theme_color": "#f59e0b",
-  "categories": ["music", "multimedia", "utilities"],
+  "background_color": "#0a0e17",
+  "theme_color": "#06b6d4",
+  "categories": ["music", "multimedia", "utilities", "video"],
   "icons": [
     {
       "src": "assets/icon.svg",

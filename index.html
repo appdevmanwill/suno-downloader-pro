@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#f59e0b" />
-  <title>NTK Hub • Suno Studio &amp; Downloader</title>
-  <meta name="description" content="NTK Hub high-fidelity Suno AI audio downloader, Meta HTDemucs v4 4-stem neural separator, waveform trimmer, mastering FX, ID3 tagger, ZIP packager, and 1080p karaoke video studio." />
+  <meta name="theme-color" content="#06b6d4" />
+  <title>NTK OmniStream Studio • Universal Media &amp; Neural Stem Separator</title>
+  <meta name="description" content="NTK Hub universal multi-platform media downloader, video & audio demuxer, Meta HTDemucs v4 2-stem and 4-stem neural separator, waveform trimmer, mastering FX, ID3 tagger, and 1080p karaoke video studio." />
 
   <!-- PWA Manifest & Studio Vector Icons -->
   <link rel="manifest" href="manifest.json" />
@@ -18,14 +18,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;900&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet" />
 
   <!-- Modular CSS System -->
-  <link rel="stylesheet" href="css/style.css?v=2026.4" />
-  <link rel="stylesheet" href="css/components.css?v=2026.4" />
-  <link rel="stylesheet" href="css/player.css?v=2026.4" />
-  <link rel="stylesheet" href="css/visualizer.css?v=2026.4" />
+  <link rel="stylesheet" href="css/style.css?v=2026.5" />
+  <link rel="stylesheet" href="css/components.css?v=2026.5" />
+  <link rel="stylesheet" href="css/player.css?v=2026.5" />
+  <link rel="stylesheet" href="css/visualizer.css?v=2026.5" />
 
   <!-- Bundled MP3 Encoder (lamejs) + ZIP Packager (JSZip) with CDN fallbacks -->
-  <script src="lib/lame.all.js?v=2026.4"></script>
-  <script src="lib/jszip.min.js?v=2026.4"></script>
+  <script src="lib/lame.all.js?v=2026.5"></script>
+  <script src="lib/jszip.min.js?v=2026.5"></script>
   <script>
     if (typeof window.lamejs === 'undefined') {
       const s = document.createElement('script');
@@ -40,7 +40,7 @@
   </script>
 
   <!-- Main ES Module Application -->
-  <script type="module" src="js/app.js?v=2026.4"></script>
+  <script type="module" src="js/app.js?v=2026.5"></script>
 </head>
 <body>
 
@@ -50,13 +50,13 @@
   <header class="app-header">
     <div class="app-container header-inner">
       <a href="#" class="brand">
-        <div class="brand-icon">♪</div>
+        <div class="brand-icon" style="background:linear-gradient(135deg,#06b6d4,#8b5cf6)">⚡</div>
         <div class="brand-text">
           <h1>
             <span>NTK Hub</span>
-            <span class="badge-engine">Suno Studio</span>
+            <span class="badge-engine" style="background:linear-gradient(135deg,#06b6d4,#8b5cf6)">OmniStream</span>
           </h1>
-          <p>M4A • WAV • Tagged MP3 • 4-Stem AI • Trim &amp; FX • Karaoke Video</p>
+          <p>Universal Media Downloader • 2-Stem / 4-Stem AI • Format Transcoder</p>
         </div>
       </a>
 
@@ -66,7 +66,7 @@
           style="display:none"
           onclick="app.installPwa()"
           class="btn btn-primary btn-sm"
-          title="Install Suno Studio as a standalone desktop or mobile app"
+          title="Install NTK OmniStream Studio as a standalone desktop or mobile app"
         >
           <span>📲</span>
           <span>Install App</span>
@@ -74,30 +74,30 @@
 
         <button
           id="btnVaultStatus"
-          onclick="app.handleVaultClick()"
+          onclick="app.openVaultModal()"
           class="btn btn-secondary btn-sm"
-          title="IndexedDB Offline Vault (caches master audio, separated 4-track stems & ONNX weights)"
+          title="IndexedDB Offline Vault (caches audio, stems, video blobs & AI models)"
         >
           <span>💾</span>
-          <span id="vaultBadgeText">Vault: 0</span>
+          <span id="vaultBadgeText">Vault: 0 MB</span>
+        </button>
+
+        <button
+          id="btnOpenCookies"
+          class="btn btn-secondary btn-sm"
+          title="Session Cookie Manager for private and age-gated media"
+        >
+          <span>🍪</span>
+          <span>Cookies</span>
         </button>
 
         <button
           onclick="app.openHelperModal()"
           class="btn btn-secondary btn-sm"
-          title="Python CLI & Local HTDemucs AI Server"
+          title="Local Python OmniHelper Server (yt-dlp + PyTorch HTDemucs)"
         >
           <span>🖥️</span>
-          <span>Helper CLI</span>
-        </button>
-
-        <button
-          onclick="document.getElementById('bookmarkletModal').classList.add('open')"
-          class="btn btn-secondary btn-sm"
-          title="Drag and drop bookmarklet to your browser bar"
-        >
-          <span>🪄</span>
-          <span>Bookmarklet</span>
+          <span>OmniHelper</span>
         </button>
       </div>
     </div>
@@ -108,62 +108,61 @@
   <!-- ===================================================================== -->
   <main class="app-container main-content">
 
-    <!-- 1-CLICK MAGIC BOOKMARKLET HERO CARD -->
+    <!-- UNIVERSAL MEDIA HERO CARD -->
     <section class="card card-hero">
       <div class="hero-content">
         <div class="hero-header">
-          <div class="hero-icon">🪄</div>
+          <div class="hero-icon" style="background:rgba(6,182,212,0.18);border-color:rgba(6,182,212,0.4)">⚡</div>
           <div class="hero-title-group">
             <h2>
-              <span>1-Click Magic Decryptor & Neural Studio Launcher</span>
-              <span class="badge-pill badge-amber">Works Anywhere</span>
+              <span>Universal Media Extractor &amp; Neural Stem Studio</span>
+              <span class="badge-pill badge-cyan">1,000+ Platforms</span>
             </h2>
             <p>
-              Drag the button below to your browser Bookmarks Bar (<kbd style="background:rgba(0,0,0,0.5);padding:2px 6px;border-radius:4px;color:#fde68a">Ctrl+Shift+B</kbd>). When viewing any song on <strong>suno.com</strong>, click it once to decrypt master audio in-page or send it straight into the 4-Stem AI Studio!
+              Paste any streaming URL from <strong>YouTube</strong>, <strong>TikTok</strong>, <strong>SoundCloud</strong>, <strong>Suno AI</strong>, <strong>Instagram</strong>, <strong>Twitter/X</strong>, or drop local <strong>video (.mp4/.mov/.mkv)</strong> and <strong>audio files</strong> to extract lossless master streams, run <strong>2-Stem</strong> (Vocal/Instrumental) or <strong>4-Stem</strong> AI separation, master audio FX, and render 1080p Karaoke videos!
             </p>
           </div>
         </div>
 
         <div class="grabber-box">
           <div class="grabber-actions">
-            <a
-              id="sunoMagicBookmarklet"
-              href="#"
-              onclick="event.preventDefault(); app.showToast('Drag this button to your Bookmarks Bar (Ctrl+Shift+B)!', 'amber');"
-              class="btn btn-primary btn-bookmarklet"
-              title="Drag me up to your Bookmarks Bar!"
-            >
-              <span>🪄 Grab Song & Launch Studio (Drag to Bookmarks Bar)</span>
-            </a>
-
             <button
-              onclick="import('./js/bookmarklet.js?v=2026.4').then(m => app.copyToClipboard(m.BookmarkletEngine.getBookmarkletUrl(), 'Copied bookmarklet URL!'))"
-              class="btn btn-secondary"
+              onclick="app.pasteAndResolveClipboard()"
+              class="btn btn-primary btn-bookmarklet"
+              style="background:linear-gradient(135deg,#06b6d4 0%,#3b82f6 100%);border-color:#06b6d4"
+              title="Read clipboard and resolve link immediately"
             >
-              <span>📋 Copy Bookmarklet</span>
+              <span>⚡ Smart Clipboard Grab (Auto-Detect Stream)</span>
             </button>
 
             <button
-              onclick="import('./js/bookmarklet.js?v=2026.4').then(m => app.copyToClipboard(m.BookmarkletEngine.getUserscriptCode(), 'Copied Tampermonkey Userscript!'))"
-              class="btn btn-accent"
-              title="Copy Tampermonkey / Violentmonkey script"
+              onclick="document.getElementById('localAudioFileInput').click()"
+              class="btn btn-cyan"
             >
-              <span>📜 Tampermonkey Script</span>
+              <span>📂 Import Video or Audio</span>
+            </button>
+
+            <button
+              onclick="app.openVaultModal()"
+              class="btn btn-secondary"
+              title="Inspect offline cached files and disk quota"
+            >
+              <span>💾 Storage Vault Inspector</span>
             </button>
           </div>
 
           <div class="grabber-steps">
             <div class="step-item">
               <span class="step-num">1</span>
-              <span>Drag the orange button to your <strong>Bookmarks Bar</strong>.</span>
+              <span>Paste any link (YouTube, TikTok, SoundCloud, Suno) or drop video/audio.</span>
             </div>
             <div class="step-item">
               <span class="step-num">2</span>
-              <span>Open your song on <strong>suno.com</strong>.</span>
+              <span>Separate <strong>2-Stems (Vocals/Instrumental)</strong> or <strong>4-Stems (Drums/Bass/Melodies)</strong>.</span>
             </div>
             <div class="step-item">
               <span class="step-num">3</span>
-              <span>Click <strong>Grab Song</strong> to decrypt or launch 4-Stem AI!</span>
+              <span>Export to <strong>MP3 320k</strong>, <strong>WAV</strong>, <strong>M4A</strong>, <strong>ZIP Kit</strong>, or <strong>1080p Video</strong>!</span>
             </div>
           </div>
         </div>
@@ -174,11 +173,11 @@
     <section class="card">
       <div class="input-header">
         <label for="songUrlInput" class="input-label">
-          <span>Step 1: Paste Suno song link(s), UUIDs, or import a local audio file</span>
+          <span>Step 1: Paste any streaming link or drop video &amp; audio files</span>
         </label>
         <div id="proxyStatusPill" class="proxy-status-pill">
           <span class="status-dot"></span>
-          <span>Checking AI server...</span>
+          <span>Checking OmniHelper status...</span>
         </div>
       </div>
 
@@ -187,12 +186,12 @@
           id="songUrlInput"
           class="url-textarea"
           rows="2"
-          placeholder="Paste one or multiple Suno URLs (https://suno.com/song/... or suno.com/s/...) or raw UUIDs..."
+          placeholder="Paste YouTube, TikTok, SoundCloud, Suno AI, Instagram, Twitter/X, Vimeo, HLS (.m3u8), or direct MP4/MP3 URLs..."
         ></textarea>
 
         <div class="input-controls">
-          <button id="btnAddSong" class="btn btn-primary btn-lg">
-            <span>Resolve</span>
+          <button id="btnAddSong" class="btn btn-primary btn-lg" style="background:linear-gradient(135deg,#06b6d4 0%,#8b5cf6 100%);border-color:#06b6d4">
+            <span>Extract</span>
             <span>→</span>
           </button>
           <button id="btnClearInput" class="btn btn-ghost btn-sm">
@@ -203,12 +202,12 @@
 
       <div class="input-footer">
         <div class="quick-samples">
-          <span style="font-weight:700;color:var(--text-secondary)">Studio Tools:</span>
+          <span style="font-weight:700;color:var(--text-secondary)">Quick Actions:</span>
           <button
             onclick="app.pasteAndResolveClipboard()"
             class="btn btn-secondary btn-sm"
             style="padding:0.28rem 0.68rem;font-size:0.73rem"
-            title="Read Suno links or UUIDs directly from your clipboard and load them into the deck"
+            title="Read links directly from clipboard and load them into the deck"
           >
             📋 Smart Clipboard Grab
           </button>
@@ -216,7 +215,7 @@
           <input
             type="file"
             id="localAudioFileInput"
-            accept=".m4a,.mp3,.wav,.flac,.ogg,audio/*"
+            accept=".mp4,.mov,.mkv,.webm,.avi,.m4a,.mp3,.wav,.flac,.ogg,video/*,audio/*"
             multiple
             style="display:none"
             onchange="app.handleLocalFileSelect(event)"
@@ -225,10 +224,15 @@
             onclick="document.getElementById('localAudioFileInput').click()"
             class="btn btn-cyan btn-sm"
             style="padding:0.28rem 0.68rem;font-size:0.73rem"
-            title="Import any M4A, MP3, WAV, or FLAC file from your device for HTDemucs v4 4-Stem AI separation, Trimming, FX, or Video rendering"
+            title="Import any video or audio file from your device for audio demuxing, 2-Stem / 4-Stem AI separation, Trimming, FX, or Video rendering"
           >
-            📂 Import Local Audio
+            📂 Import Video or Audio
           </button>
+
+          <label style="display:inline-flex;align-items:center;gap:0.35rem;font-size:0.75rem;cursor:pointer;color:var(--text-secondary);background:rgba(255,255,255,0.04);padding:0.28rem 0.68rem;border-radius:6px;border:1px solid var(--border-subtle)" title="Toggle Data-Saver to extract audio streams only without downloading full video">
+            <input type="checkbox" id="chkAudioOnlyGrab" style="accent-color:#06b6d4" />
+            <span style="color:#67e8f9;font-weight:600">⚡ Data-Saver: Audio-Only</span>
+          </label>
 
           <input
             type="file"
@@ -256,7 +260,7 @@
           </button>
         </div>
         <div>
-          <span>💡 Multi-URL batch extraction • Drag &amp; drop audio anywhere</span>
+          <span>💡 Supports 1,000+ streaming sites • Drag &amp; drop video or audio anywhere</span>
         </div>
       </div>
     </section>
@@ -1290,17 +1294,17 @@
       </div>
 
       <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.5">
-        Running the local helper unlocks instant 1-click Suno decryption (bypassing browser CORS restrictions) AND native PyTorch <strong>Meta HTDemucs v4</strong> multi-core stem separation on port <code>8899</code>:
+        Running the local OmniHelper unlocks universal stream extraction from YouTube, TikTok, SoundCloud, Instagram, and Suno AI, plus native PyTorch <strong>Meta HTDemucs v4</strong> neural stem separation on port <code>8899</code>:
       </p>
 
       <div style="display:flex;flex-direction:column;gap:0.75rem;">
         <div>
           <span style="font-size:0.75rem;font-weight:700;color:var(--accent-amber)">1. Start local Studio + HTDemucs AI server:</span>
           <div class="code-box">
-            <code>python helper/suno_helper.py --serve --port 8899</code>
+            <code>python helper/omni_helper.py --serve --port 8899</code>
             <button
               class="btn btn-secondary btn-sm"
-              onclick="app.copyToClipboard('python helper/suno_helper.py --serve --port 8899')"
+              onclick="app.copyToClipboard('python helper/omni_helper.py --serve --port 8899')"
             >
               Copy
             </button>
@@ -1567,6 +1571,106 @@
   </div>
 
   <!-- TOAST NOTIFICATION CONTAINER -->
+  
+  <!-- ===================================================================== -->
+  <!-- OFFLINE STORAGE VAULT INSPECTOR MODAL                                 -->
+  <!-- ===================================================================== -->
+  <div id="vaultModal" class="modal-overlay">
+    <div class="modal-content" style="max-width:540px">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>📦</span>
+          <span>IndexedDB Offline Storage Vault</span>
+        </div>
+        <button data-close-modal class="btn btn-ghost btn-icon">✕</button>
+      </div>
+
+      <p style="font-size:0.83rem;color:var(--text-secondary);line-height:1.45">
+        NTK OmniStream Studio caches master audio streams, video blobs, separated neural stems, and PyTorch ONNX model weights directly in your browser's persistent IndexedDB storage so you can work 100% offline with zero data consumption.
+      </p>
+
+      <div style="display:flex;flex-direction:column;gap:0.75rem;margin:1rem 0;background:rgba(0,0,0,0.25);border:1px solid var(--border-color);border-radius:10px;padding:1rem">
+        <div style="display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(255,255,255,0.06);padding-bottom:0.5rem">
+          <span style="font-size:0.8rem;color:var(--text-secondary)">Total Vault Storage Used</span>
+          <strong id="vaultModalSizeText" style="font-size:1.05rem;color:#38bdf8">0 MB</strong>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem">
+          <span style="color:var(--text-secondary)">Cached Master Audio Streams</span>
+          <span id="vaultModalMastersCount" style="font-weight:700;color:var(--text-primary)">0</span>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem">
+          <span style="color:var(--text-secondary)">Separated Neural Stems (WAV)</span>
+          <span id="vaultModalStemsCount" style="font-weight:700;color:#10b981">0</span>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;align-items:center;font-size:0.8rem">
+          <span style="color:var(--text-secondary)">Meta HTDemucs v4 ONNX Model</span>
+          <span id="vaultModalModelsStatus" style="font-weight:700;color:#f59e0b">On-Demand</span>
+        </div>
+      </div>
+
+      <div style="display:flex;flex-wrap:wrap;gap:0.5rem;justify-content:space-between;align-items:center">
+        <div style="display:flex;gap:0.5rem">
+          <button id="btnClearVaultStems" type="button" class="btn btn-secondary btn-sm" title="Delete only separated stems to reclaim storage">
+            Clear Stems
+          </button>
+          <button id="btnClearVaultMasters" type="button" class="btn btn-secondary btn-sm" title="Delete cached audio streams">
+            Clear Masters
+          </button>
+        </div>
+        <div style="display:flex;gap:0.5rem">
+          <button id="btnPurgeVault" type="button" class="btn btn-sm" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;font-weight:700">
+            Purge Entire Vault
+          </button>
+          <button type="button" data-close-modal class="btn btn-secondary btn-sm">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- SESSION COOKIE MANAGER MODAL                                          -->
+  <!-- ===================================================================== -->
+  <div id="cookieModal" class="modal-overlay">
+    <div class="modal-content" style="max-width:560px">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🍪</span>
+          <span>Session Cookies &amp; Private Media Access</span>
+        </div>
+        <button data-close-modal class="btn btn-ghost btn-icon">✕</button>
+      </div>
+
+      <p style="font-size:0.83rem;color:var(--text-secondary);line-height:1.45">
+        Paste Netscape-format or raw HTTP session cookies here. This allows OmniStream Studio and the Python helper to download private playlists, age-restricted videos, and members-only streams from YouTube, SoundCloud, Instagram, and TikTok.
+      </p>
+
+      <div style="display:flex;flex-direction:column;gap:0.5rem;margin:0.85rem 0">
+        <label for="cookieTextInput" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary)">
+          Netscape Cookie Format (# Netscape HTTP Cookie File) or Header:
+        </label>
+        <textarea
+          id="cookieTextInput"
+          rows="7"
+          placeholder="# Netscape HTTP Cookie File&#10;.youtube.com&#9;TRUE&#9;/&#9;TRUE&#9;1799999999&#9;SID&#9;your_cookie_here"
+          style="width:100%;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:6px;padding:0.6rem;font-family:var(--font-mono);font-size:0.75rem;color:var(--text-primary);resize:vertical"
+        ></textarea>
+        <span style="font-size:0.7rem;color:var(--text-muted)">
+          Tip: You can export cookies using browser extensions like 'Get cookies.txt LOCALLY' or your browser devtools.
+        </span>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:0.6rem">
+        <button type="button" data-close-modal class="btn btn-secondary btn-sm">Cancel</button>
+        <button id="btnSaveCookies" type="button" class="btn btn-primary btn-sm" style="font-weight:700">
+          Save Cookies to Vault
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- ===================================================================== -->
@@ -1576,7 +1680,7 @@
     <div class="app-container footer-inner">
       <div class="footer-top">
         <div>
-          <strong style="color:var(--text-primary);font-size:0.95rem">NTK Hub • Suno Studio Edition</strong>
+          <strong style="color:var(--text-primary);font-size:0.95rem">NTK OmniStream Studio · Universal Edition</strong>
           <p style="font-size:0.775rem;color:var(--text-muted);margin-top:0.25rem">
             Hybrid HTDemucs v4 neural stem separator, audio trimmer, mastering FX, ID3v2.3 tagger, ZIP packager &amp; 1080p karaoke video studio.
           </p>
