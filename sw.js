@@ -1,9 +1,9 @@
 /**
- * Suno Downloader Pro - Studio PWA Service Worker
+ * NTK Hub • Suno Studio - PWA Service Worker
  * Provides offline app-shell caching while keeping API and streaming endpoints network-direct.
  */
 
-const CACHE_NAME = 'suno-studio-pwa-v2026-2';
+const CACHE_NAME = 'ntk-hub-suno-studio-v2026-4';
 
 const APP_SHELL_ASSETS = [
   './',

@@ -5,20 +5,31 @@
       "firebase.json",
       "**/.*",
       "**/node_modules/**",
-      "helper/**"
+      "**/__pycache__/**",
+      "helper/**",
+      "*.md"
     ],
     "headers": [
       {
-        "source": "**/*.@(js|css|svg|png|jpg|jpeg)",
+        "source": "lib/**",
         "headers": [
           {
             "key": "Cache-Control",
-            "value": "max-age=31536000"
+            "value": "public, max-age=31536000"
           }
         ]
       },
       {
-        "source": "sw.js",
+        "source": "**/*.@(js|css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "public, max-age=3600, must-revalidate"
+          }
+        ]
+      },
+      {
+        "source": "@(index.html|404.html|manifest.json|sw.js)",
         "headers": [
           {
             "key": "Cache-Control",

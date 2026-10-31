@@ -6,11 +6,116 @@
 export class SunoAPI {
   static UUID_REGEX = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
   static UUID_GLOBAL_REGEX = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+  static PLAYLIST_URL_REGEX = /(?:suno\.com\/playlist\/|[?&]playlist=)([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i;
 
   static LOCAL_PROXY_URL = 'http://127.0.0.1:8899';
   static SUNO_RIGHTS_ENDPOINT = 'https://studio-api.prod.suno.com/api/mango/rights';
   static SUNO_CLIP_ENDPOINT = 'https://studio-api.prod.suno.com/api/clip/';
   static CLOUDFRONT_STREAM_BASE = 'https://d2lwuy8qc234o3.cloudfront.net/1/clip/';
+
+  /**
+   * Checks if an input string is or contains a Suno playlist link
+   * @param {string} input
+   * @returns {boolean}
+   */
+  static isPlaylistUrl(input) {
+    if (!input) return false;
+    return SunoAPI.PLAYLIST_URL_REGEX.test(input) || input.toLowerCase().includes('/playlist/');
+  }
+
+  /**
+   * Parses arbitrary input text (multiple URLs, newlines, commas) and categorizes
+   * playlist UUIDs and individual song UUIDs.
+   * @param {string} input
+   * @returns {{ songUuids: string[], playlistUuids: string[] }}
+   */
+  static parseBatchInput(input) {
+    if (!input) return { songUuids: [], playlistUuids: [] };
+    const text = String(input);
+    const playlistUuids = [];
+    const songUuids = [];
+
+    const tokens = text.split(/[\r\n,;\s]+/);
+    for (const token of tokens) {
+      const trimmed = token.trim();
+      if (!trimmed) continue;
+      const plMatch = trimmed.match(SunoAPI.PLAYLIST_URL_REGEX);
+      if (plMatch && plMatch[1]) {
+        playlistUuids.push(plMatch[1].toLowerCase());
+      } else {
+        const uMatch = trimmed.match(SunoAPI.UUID_REGEX);
+        if (uMatch) {
+          if (trimmed.toLowerCase().includes('/playlist/')) {
+            playlistUuids.push(uMatch[0].toLowerCase());
+          } else {
+            songUuids.push(uMatch[0].toLowerCase());
+          }
+        }
+      }
+    }
+
+    return {
+      playlistUuids: [...new Set(playlistUuids)],
+      songUuids: [...new Set(songUuids)]
+    };
+  }
+
+  /**
+   * Fetches an entire Suno playlist (all tracks, name, artwork) via local proxy or direct API
+   * @param {string} playlistId
+   * @returns {Promise<{ id: string, name: string, description: string, image_url: string, num_total_results: number, clips: Array<Object> }>}
+   */
+  static async fetchPlaylist(playlistId) {
+    const cleanId = playlistId.toLowerCase().trim();
+
+    // Tier 1: Local Proxy Server (highest reliability, bypasses CORS, automatic pagination)
+    try {
+      const resp = await fetch(`${SunoAPI.LOCAL_PROXY_URL}/api/suno/playlist/${cleanId}`);
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && Array.isArray(data.clips)) {
+          return data;
+        }
+      }
+    } catch (e) {}
+
+    // Tier 2: Direct Studio API (for same-origin / extension / open contexts)
+    try {
+      const resp = await fetch(`https://studio-api.prod.suno.com/api/playlist/${cleanId}/?page=1`);
+      if (resp.ok) {
+        const data = await resp.json();
+        const clips = (data.playlist_clips || []).map((item) => {
+          const c = item.clip || {};
+          const cid = (c.id || '').toLowerCase().trim();
+          return {
+            uuid: cid,
+            title: c.title || `Suno_Song_${cid.slice(0, 8)}`,
+            imageLarge: c.image_large_url || `https://cdn2.suno.ai/image_large_${cid}.jpeg`,
+            imageThumb: c.image_url || `https://cdn1.suno.ai/image_${cid}.jpeg`,
+            videoUrl: c.video_url || `https://cdn1.suno.ai/${cid}.mp4`,
+            duration: c.duration || 0,
+            prompt: (c.metadata || {}).prompt || '',
+            tags: (c.metadata || {}).tags || '',
+            streamUrl: `${SunoAPI.CLOUDFRONT_STREAM_BASE}${cid}.m4a`,
+            sunoUrl: `https://suno.com/song/${cid}`,
+            model: c.model_name || 'chirp-v3.5',
+            playerMode: 'custom',
+            hasStem: true
+          };
+        });
+        return {
+          id: cleanId,
+          name: data.name || `Suno_Playlist_${cleanId.slice(0, 8)}`,
+          description: data.description || '',
+          image_url: data.image_url || '',
+          num_total_results: data.num_total_results || clips.length,
+          clips
+        };
+      }
+    } catch (e) {}
+
+    throw new Error(`Unable to fetch playlist ${cleanId}. Make sure the local helper proxy is running on port 8899.`);
+  }
 
   /**
    * Extracts UUIDs from arbitrary input string
@@ -71,7 +176,27 @@ export class SunoAPI {
       embedUrl: `https://suno.com/embed/${cleanUuid}`
     };
 
-    // Attempt 1: Suno Studio Clip API
+    // Attempt 1: Local Helper Proxy on port 8899 (Extracts exact Next.js RSC lyrics & true title)
+    try {
+      const localResp = await fetch(`${SunoAPI.LOCAL_PROXY_URL}/api/suno/song/${cleanUuid}`);
+      if (localResp.ok) {
+        const localData = await localResp.json();
+        if (localData && (localData.title || localData.prompt)) {
+          if (localData.title) meta.title = localData.title;
+          if (localData.prompt) meta.prompt = localData.prompt;
+          if (localData.tags) meta.tags = localData.tags;
+          if (localData.duration) meta.duration = localData.duration;
+          if (localData.imageLarge) meta.imageLarge = localData.imageLarge;
+          if (localData.imageThumb) meta.imageThumb = localData.imageThumb;
+          if (localData.videoUrl) meta.videoUrl = localData.videoUrl;
+          if (localData.model) meta.model = localData.model;
+          if (localData.artist) meta.artist = localData.artist;
+          return meta;
+        }
+      }
+    } catch (e) {}
+
+    // Attempt 2: Suno Studio Clip API
     try {
       const clipResp = await fetch(`${SunoAPI.SUNO_CLIP_ENDPOINT}${cleanUuid}`, {
         headers: { 'User-Agent': 'Mozilla/5.0' }
@@ -107,10 +232,24 @@ export class SunoAPI {
         return meta;
       }
     } catch (e) {
-      // Fallback to CORS-safe Microlink API
+      // Fallback to CORS proxies
     }
 
-    // Attempt 2: Microlink OpenGraph scraper fallback
+    // Attempt 3: Public CORS proxy page fetch + Next.js RSC parser
+    try {
+      const corsUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://suno.com/song/${cleanUuid}`)}`;
+      const pageResp = await fetch(corsUrl);
+      if (pageResp.ok) {
+        const html = await pageResp.text();
+        const parsed = SunoAPI.parseNextRscHtml(html, cleanUuid);
+        if (parsed.title) meta.title = parsed.title;
+        if (parsed.prompt) meta.prompt = parsed.prompt;
+        if (parsed.tags) meta.tags = parsed.tags;
+        if (meta.title && meta.prompt) return meta;
+      }
+    } catch (e) {}
+
+    // Attempt 4: Microlink OpenGraph scraper fallback
     try {
       const apiUrl = `https://api.microlink.io/?url=${encodeURIComponent(`https://suno.com/song/${cleanUuid}`)}`;
       const res = await fetch(apiUrl);
@@ -134,6 +273,51 @@ export class SunoAPI {
     }
 
     return meta;
+  }
+
+  /**
+   * Parses title, tags, and prompt lyrics from Suno HTML React Server Component streaming chunks
+   * @param {string} html
+   * @param {string} uuid
+   * @returns {Object}
+   */
+  static parseNextRscHtml(html, uuid) {
+    const res = {};
+    if (!html) return res;
+    const ogTitleMatch = html.match(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i);
+    if (ogTitleMatch && ogTitleMatch[1]) {
+      const t = ogTitleMatch[1].replace(/\s*[|-]\s*Suno.*$/i, '').trim();
+      if (t && t.toLowerCase() !== 'suno') res.title = t;
+    }
+    const ogDescMatch = html.match(/<meta\s+property=["']og:description["']\s+content=["']([^"']+)["']/i);
+    if (ogDescMatch && ogDescMatch[1]) {
+      res.tags = ogDescMatch[1].trim();
+    }
+    try {
+      const promptPtrMatch = html.match(/"prompt"\s*:\s*"\$([0-9a-fA-F]+)"/);
+      if (promptPtrMatch) {
+        const ptr = promptPtrMatch[1];
+        const chunkPattern = new RegExp(`(?:^|[\\r\\n])${ptr}:T([0-9a-fA-F]+),([\\s\\S]*?)(?:[\\r\\n][0-9a-fA-F]+:[A-Za-z0-9]|$)`);
+        const chunkMatch = html.match(chunkPattern);
+        if (chunkMatch && chunkMatch[2]) {
+          const hexLen = parseInt(chunkMatch[1], 16);
+          let rawPrompt = chunkMatch[2].slice(0, hexLen);
+          rawPrompt = rawPrompt.replace(/\\n/g, '\n').replace(/\\r/g, '\r').replace(/\\"/g, '"');
+          if (rawPrompt.trim().length > 0) res.prompt = rawPrompt.trim();
+        }
+      }
+      if (!res.prompt) {
+        const verseIdx = html.indexOf('[Verse');
+        if (verseIdx !== -1) {
+          const slice = html.substring(verseIdx, verseIdx + 4000);
+          const endIdx = slice.search(/(?:<\/|",|\\"\s*[,}])/);
+          if (endIdx > 50) {
+            res.prompt = slice.substring(0, endIdx).replace(/\\n/g, '\n').replace(/\\"/g, '"').trim();
+          }
+        }
+      }
+    } catch (e) {}
+    return res;
   }
 
   /**
@@ -198,7 +382,7 @@ export class SunoAPI {
     }
 
     throw new Error(
-      'Could not acquire Mango DRM rights from external host due to browser CORS policies. Please use the 1-Click Bookmarklet on suno.com or launch the Python helper with: python suno_downloader.py --serve'
+      'Could not acquire Mango DRM rights from external host due to browser CORS policies. Please use the 1-Click Bookmarklet on suno.com or launch the Python helper with: python helper/suno_helper.py --serve --port 8899'
     );
   }
 

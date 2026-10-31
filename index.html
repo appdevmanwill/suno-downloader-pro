@@ -4,28 +4,28 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#f59e0b" />
-  <title>Suno Downloader Pro • 2026 Studio Edition</title>
-  <meta name="description" content="High-fidelity Suno AI audio downloader, Meta HTDemucs v4 4-stem neural separator, waveform trimmer, mastering FX, ID3 tagger, ZIP packager, and 1080p karaoke video studio." />
+  <title>NTK Hub • Suno Studio &amp; Downloader</title>
+  <meta name="description" content="NTK Hub high-fidelity Suno AI audio downloader, Meta HTDemucs v4 4-stem neural separator, waveform trimmer, mastering FX, ID3 tagger, ZIP packager, and 1080p karaoke video studio." />
 
   <!-- PWA Manifest & Studio Vector Icons -->
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
   <link rel="apple-touch-icon" href="assets/icon.svg" />
 
-  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <!-- Google Fonts: Inter, JetBrains Mono, Montserrat, Orbitron & Playfair Display -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&family=Montserrat:wght@700;800;900&family=Orbitron:wght@700;900&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet" />
 
   <!-- Modular CSS System -->
-  <link rel="stylesheet" href="css/style.css?v=2026.2" />
-  <link rel="stylesheet" href="css/components.css?v=2026.2" />
-  <link rel="stylesheet" href="css/player.css?v=2026.2" />
-  <link rel="stylesheet" href="css/visualizer.css?v=2026.2" />
+  <link rel="stylesheet" href="css/style.css?v=2026.4" />
+  <link rel="stylesheet" href="css/components.css?v=2026.4" />
+  <link rel="stylesheet" href="css/player.css?v=2026.4" />
+  <link rel="stylesheet" href="css/visualizer.css?v=2026.4" />
 
   <!-- Bundled MP3 Encoder (lamejs) + ZIP Packager (JSZip) with CDN fallbacks -->
-  <script src="lib/lame.all.js?v=2026.2"></script>
-  <script src="lib/jszip.min.js?v=2026.2"></script>
+  <script src="lib/lame.all.js?v=2026.4"></script>
+  <script src="lib/jszip.min.js?v=2026.4"></script>
   <script>
     if (typeof window.lamejs === 'undefined') {
       const s = document.createElement('script');
@@ -40,7 +40,7 @@
   </script>
 
   <!-- Main ES Module Application -->
-  <script type="module" src="js/app.js?v=2026.2"></script>
+  <script type="module" src="js/app.js?v=2026.4"></script>
 </head>
 <body>
 
@@ -53,8 +53,8 @@
         <div class="brand-icon">♪</div>
         <div class="brand-text">
           <h1>
-            <span>Suno Downloader Pro</span>
-            <span class="badge-engine">HTDemucs v4 AI</span>
+            <span>NTK Hub</span>
+            <span class="badge-engine">Suno Studio</span>
           </h1>
           <p>M4A • WAV • Tagged MP3 • 4-Stem AI • Trim &amp; FX • Karaoke Video</p>
         </div>
@@ -137,14 +137,14 @@
             </a>
 
             <button
-              onclick="import('./js/bookmarklet.js?v=2026.2').then(m => app.copyToClipboard(m.BookmarkletEngine.getBookmarkletUrl(), 'Copied bookmarklet URL!'))"
+              onclick="import('./js/bookmarklet.js?v=2026.4').then(m => app.copyToClipboard(m.BookmarkletEngine.getBookmarkletUrl(), 'Copied bookmarklet URL!'))"
               class="btn btn-secondary"
             >
               <span>📋 Copy Bookmarklet</span>
             </button>
 
             <button
-              onclick="import('./js/bookmarklet.js?v=2026.2').then(m => app.copyToClipboard(m.BookmarkletEngine.getUserscriptCode(), 'Copied Tampermonkey Userscript!'))"
+              onclick="import('./js/bookmarklet.js?v=2026.4').then(m => app.copyToClipboard(m.BookmarkletEngine.getUserscriptCode(), 'Copied Tampermonkey Userscript!'))"
               class="btn btn-accent"
               title="Copy Tampermonkey / Violentmonkey script"
             >
@@ -271,20 +271,37 @@
 
         <div class="deck-actions-group">
           <button
+            id="btnBulkDownloadZip"
+            onclick="app.openBulkDownloadModal()"
+            class="btn btn-primary btn-sm"
+            style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);border-color:#10b981;font-weight:700"
+            title="Download all songs in your playlist or deck at once into a single .ZIP with your chosen format"
+          >
+            ⚡ Bulk Download All (.ZIP)
+          </button>
+          <button
+            id="btnBatchMetaTag"
+            onclick="app.openBatchMetaModal()"
+            class="btn btn-cyan btn-sm"
+            title="Edit Album, Artist, Year, and Genre tags for all tracks in the deck at once"
+          >
+            🏷️ Batch Tag All
+          </button>
+          <button
             id="btnBatchZipMp3"
             onclick="app.downloadBatchDeckZip('mp3')"
             class="btn btn-accent btn-sm"
-            title="Download every song in your deck as Tagged 320k MP3s + Cover Art + Lyrics inside a single .ZIP"
+            title="Quick Download every song in your deck as Tagged 320k MP3s inside a single .ZIP"
           >
-            📦 Batch Deck .ZIP (MP3 + ID3)
+            📦 MP3 .ZIP
           </button>
           <button
             id="btnBatchZipM4a"
             onclick="app.downloadBatchDeckZip('m4a')"
             class="btn btn-secondary btn-sm"
-            title="Download every song in your deck as original M4A masters + Cover Art + Lyrics inside a single .ZIP"
+            title="Quick Download every song in your deck as original M4A masters inside a single .ZIP"
           >
-            📦 Batch .ZIP (M4A)
+            📦 M4A .ZIP
           </button>
           <button id="btnClearAll" class="btn btn-ghost btn-sm" style="color:var(--text-muted)">
             Clear Deck
@@ -389,16 +406,25 @@
             <button class="preset-chip" data-stem-preset="karaoke" onclick="app.applyStemPreset('karaoke')">🎸 Karaoke (No Voice)</button>
             <button class="preset-chip" data-stem-preset="drumless" onclick="app.applyStemPreset('drumless')">🥁 Drumless</button>
             <button class="preset-chip" data-stem-preset="rhythm" onclick="app.applyStemPreset('rhythm')">🔊 Rhythm (Drums+Bass)</button>
+            <button
+              id="btnSplitVocals"
+              onclick="app.splitCurrentVocals()"
+              class="btn btn-cyan btn-sm"
+              style="font-size:0.72rem;padding:0.22rem 0.55rem;margin-left:auto"
+              title="Separate Vocals into Lead Vocals and Backing Harmonies"
+            >
+              🎙️ Split Vocals (Lead / Backing)
+            </button>
           </div>
         </div>
 
-        <!-- 4 Channel Strips -->
+        <!-- Channel Strips -->
         <div class="stem-tracks-list">
-          <!-- Strip 1: Vocals -->
+          <!-- Strip 1: Vocals (Full) -->
           <div class="stem-strip" id="stem-strip-vocals">
             <div class="stem-track-label">
               <span class="stem-dot" style="background:#22d3ee;box-shadow:0 0 8px #22d3ee"></span>
-              <span>🎤 Vocals</span>
+              <span>🎤 Vocals (All)</span>
             </div>
             <div class="stem-ms-group">
               <button id="stem-mute-vocals" class="btn-ms mute-btn" onclick="app.toggleStemMute('vocals')" title="Mute Vocals">M</button>
@@ -414,6 +440,52 @@
             <div class="stem-dl-pair">
               <button class="btn btn-cyan btn-sm" onclick="app.downloadStemTrack('vocals', 'wav')">WAV</button>
               <button class="btn btn-secondary btn-sm" onclick="app.downloadStemTrack('vocals', 'mp3')">MP3</button>
+            </div>
+          </div>
+
+          <!-- Strip 1A: Lead Vocals (shown when split is active) -->
+          <div class="stem-strip" id="stem-strip-lead_vocals" style="display:none;background:rgba(34,211,238,0.06);border-color:rgba(34,211,238,0.3)">
+            <div class="stem-track-label">
+              <span class="stem-dot" style="background:#38bdf8;box-shadow:0 0 8px #38bdf8"></span>
+              <span>🎤 Lead Vocals (Center)</span>
+            </div>
+            <div class="stem-ms-group">
+              <button id="stem-mute-lead_vocals" class="btn-ms mute-btn" onclick="app.toggleStemMute('lead_vocals')" title="Mute Lead Vocals">M</button>
+              <button id="stem-solo-lead_vocals" class="btn-ms solo-btn" onclick="app.toggleStemSolo('lead_vocals')" title="Solo Lead Vocals">S</button>
+            </div>
+            <div class="stem-fader-col">
+              <div class="stem-fader-row">
+                <input type="range" id="stem-fader-lead_vocals" class="stem-fader" min="0" max="150" value="100" oninput="app.setStemVolume('lead_vocals', this.value)" />
+                <span id="stem-gain-lead_vocals" class="stem-gain-val">100%</span>
+              </div>
+              <div class="stem-meter-track"><div id="stem-meter-lead_vocals" class="stem-meter-fill"></div></div>
+            </div>
+            <div class="stem-dl-pair">
+              <button class="btn btn-cyan btn-sm" onclick="app.downloadStemTrack('lead_vocals', 'wav')">WAV</button>
+              <button class="btn btn-secondary btn-sm" onclick="app.downloadStemTrack('lead_vocals', 'mp3')">MP3</button>
+            </div>
+          </div>
+
+          <!-- Strip 1B: Backing Harmonies (shown when split is active) -->
+          <div class="stem-strip" id="stem-strip-backing_vocals" style="display:none;background:rgba(168,85,247,0.06);border-color:rgba(168,85,247,0.3)">
+            <div class="stem-track-label">
+              <span class="stem-dot" style="background:#c084fc;box-shadow:0 0 8px #c084fc"></span>
+              <span>👥 Backing Harmonies</span>
+            </div>
+            <div class="stem-ms-group">
+              <button id="stem-mute-backing_vocals" class="btn-ms mute-btn" onclick="app.toggleStemMute('backing_vocals')" title="Mute Backing Vocals">M</button>
+              <button id="stem-solo-backing_vocals" class="btn-ms solo-btn" onclick="app.toggleStemSolo('backing_vocals')" title="Solo Backing Vocals">S</button>
+            </div>
+            <div class="stem-fader-col">
+              <div class="stem-fader-row">
+                <input type="range" id="stem-fader-backing_vocals" class="stem-fader" min="0" max="150" value="100" oninput="app.setStemVolume('backing_vocals', this.value)" />
+                <span id="stem-gain-backing_vocals" class="stem-gain-val">100%</span>
+              </div>
+              <div class="stem-meter-track"><div id="stem-meter-backing_vocals" class="stem-meter-fill"></div></div>
+            </div>
+            <div class="stem-dl-pair">
+              <button class="btn btn-cyan btn-sm" onclick="app.downloadStemTrack('backing_vocals', 'wav')">WAV</button>
+              <button class="btn btn-secondary btn-sm" onclick="app.downloadStemTrack('backing_vocals', 'mp3')">MP3</button>
             </div>
           </div>
 
@@ -624,7 +696,7 @@
   </div>
 
   <!-- ===================================================================== -->
-  <!-- KARAOKE VIDEO & VISUALIZER STUDIO MODAL                               -->
+  <!-- KARAOKE VIDEO & VISUALIZER STUDIO MODAL (WORLD-CLASS SUITE)           -->
   <!-- ===================================================================== -->
   <div id="videoStudioModal" class="modal-overlay">
     <div class="modal-content studio-modal-content">
@@ -637,84 +709,511 @@
       </div>
 
       <div class="studio-grid">
-        <!-- Visual Preview Canvas -->
+        <!-- Visual Preview Canvas & Transport -->
         <div class="studio-preview-pane">
           <div id="canvasContainer" class="canvas-container ratio-1-1">
             <canvas id="studioCanvas" width="1080" height="1080"></canvas>
           </div>
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem">
-            <button id="btnVideoLivePreview" class="btn btn-secondary btn-sm" onclick="app.toggleVideoPreview()">
-              ▶ Live Preview with Audio
+
+          <div class="canvas-drag-hint">
+            <span>💡 Drag artwork, visualizer, lyrics or title directly on canvas to reposition</span>
+            <button id="btnResetCanvasPositions" class="btn btn-ghost btn-xs" onclick="app.resetVideoLayoutPositions()" style="display:none;" title="Reset all custom positions to centered defaults">
+              ↺ Reset Drag Positions
             </button>
-            <span style="font-size:0.72rem;color:var(--text-muted)">1080p Full HD Canvas</span>
+          </div>
+
+          <!-- Timeline Scrubber Bar -->
+          <div class="timeline-scrubber-row">
+            <input
+              type="range"
+              id="videoTimelineScrubber"
+              class="transport-scrubber"
+              min="0"
+              max="1000"
+              value="0"
+              oninput="app.scrubVideoTimeline(this.value)"
+              onpointerdown="app.isUserDraggingScrubber = true"
+              onpointerup="app.isUserDraggingScrubber = false"
+              onpointercancel="app.isUserDraggingScrubber = false"
+              title="Scrub timeline to inspect any second of your video"
+            />
+            <span id="videoTimelineTime" class="transport-time">0:00 / 0:00</span>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap">
+            <div style="display:flex;gap:0.45rem">
+              <button id="btnVideoLivePreview" class="btn btn-secondary btn-sm" onclick="app.toggleVideoPreview()">
+                ▶ Live Preview with Audio
+              </button>
+              <button class="btn btn-ghost btn-sm" onclick="app.snapshotVideoFrame()" title="Download current frame as high-res PNG snapshot">
+                📸 Snapshot Frame
+              </button>
+            </div>
+            <span id="videoCanvasBadge" class="badge-pill badge-emerald">1080p Full HD</span>
           </div>
         </div>
 
-        <!-- Controls & Export Options -->
+        <!-- Controls & Customization Tabs Pane -->
         <div class="studio-controls-pane">
-          <div class="control-group">
-            <span class="control-label">Aspect Ratio (Format)</span>
-            <div class="aspect-ratio-selector">
-              <button
-                class="ratio-btn active"
-                data-ratio="1:1"
-                onclick="app.setVideoAspectRatio('1:1')"
-              >
-                Square 1:1<br /><span style="font-size:0.65rem;color:var(--text-muted)">Instagram/Post</span>
-              </button>
-              <button
-                class="ratio-btn"
-                data-ratio="9:16"
-                onclick="app.setVideoAspectRatio('9:16')"
-              >
-                Vertical 9:16<br /><span style="font-size:0.65rem;color:var(--text-muted)">TikTok/Reels</span>
-              </button>
-              <button
-                class="ratio-btn"
-                data-ratio="16:9"
-                onclick="app.setVideoAspectRatio('16:9')"
-              >
-                Landscape 16:9<br /><span style="font-size:0.65rem;color:var(--text-muted)">YouTube HD</span>
-              </button>
+          <!-- Studio Tabs Header -->
+          <div class="studio-tabs-bar">
+            <button class="studio-tab-btn active" data-vtab="brand" onclick="app.switchVideoTab('brand')">🏷️ Brand</button>
+            <button class="studio-tab-btn" data-vtab="background" onclick="app.switchVideoTab('background')">🖼️ Backdrop</button>
+            <button class="studio-tab-btn" data-vtab="artwork" onclick="app.switchVideoTab('artwork')">💿 Artwork</button>
+            <button class="studio-tab-btn" data-vtab="visualizer" onclick="app.switchVideoTab('visualizer')">🎛️ Visualizer</button>
+            <button class="studio-tab-btn" data-vtab="lyrics" onclick="app.switchVideoTab('lyrics')">✍️ Lyrics</button>
+            <button class="studio-tab-btn" data-vtab="export" onclick="app.switchVideoTab('export')">⚙️ Export</button>
+          </div>
+
+          <!-- TAB 1: BRANDING & WATERMARK -->
+          <div id="vtab-brand" class="studio-tab-pane active">
+            <div class="control-group">
+              <label for="videoStudioName" class="control-label">Studio / Record Label Name</label>
+              <input
+                type="text"
+                id="videoStudioName"
+                class="form-control"
+                placeholder="e.g. NTK Hub / Cosmic Audio"
+                oninput="app.updateVideoBranding()"
+              />
+            </div>
+
+            <div class="control-group">
+              <label for="videoStudioSubtitle" class="control-label">Tagline / Subtitle</label>
+              <input
+                type="text"
+                id="videoStudioSubtitle"
+                class="form-control"
+                placeholder="e.g. Official Visualizer / Mastered 2026"
+                oninput="app.updateVideoBranding()"
+              />
+            </div>
+
+            <div class="control-group">
+              <label for="videoWatermarkPos" class="control-label">Corner Watermark Badge</label>
+              <select id="videoWatermarkPos" class="studio-select" onchange="app.updateVideoBranding()">
+                <option value="top-left">✦ Top-Left (Broadcast Style)</option>
+                <option value="top-right">✦ Top-Right</option>
+                <option value="bottom-left">✦ Bottom-Left</option>
+                <option value="bottom-right">✦ Bottom-Right</option>
+                <option value="none">Off (No Watermark Badge)</option>
+              </select>
+            </div>
+
+            <label class="karaoke-toggle-row">
+              <span>🏷️ Show Studio &amp; Timestamp Footer</span>
+              <input type="checkbox" id="chkVideoFooter" checked onchange="app.toggleVideoFooter(this.checked)" />
+            </label>
+          </div>
+
+          <!-- TAB 2: BACKGROUND & CINEMA -->
+          <div id="vtab-background" class="studio-tab-pane">
+            <div class="control-group">
+              <span class="control-label">Custom Background Image / Wallpaper</span>
+              <div style="display:flex;gap:0.45rem;align-items:center;flex-wrap:wrap">
+                <input
+                  type="file"
+                  id="videoBgFileInput"
+                  accept="image/*"
+                  style="display:none"
+                  onchange="app.handleCustomBgUpload(event)"
+                />
+                <button class="btn btn-cyan btn-sm" onclick="document.getElementById('videoBgFileInput').click()">
+                  📂 Upload Custom Wallpaper
+                </button>
+                <button id="btnClearVideoBg" class="btn btn-ghost btn-sm" style="display:none" onclick="app.clearCustomVideoBg()">
+                  ✕ Reset to Artwork
+                </button>
+              </div>
+              <div id="videoBgStatusText" style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem">
+                Using Album Artwork Backdrop
+              </div>
+            </div>
+
+            <div class="control-group">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <label for="videoBgDim" class="control-label">Background Dimming Scrim</label>
+                <span id="videoBgDimVal" class="tag-badge" style="color:#bae6fd">40%</span>
+              </div>
+              <input
+                type="range"
+                id="videoBgDim"
+                min="0"
+                max="100"
+                value="40"
+                class="stem-fader"
+                oninput="app.updateVideoBgSettings()"
+              />
+            </div>
+
+            <div class="control-group">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <label for="videoBgBlur" class="control-label">Background Blur Radius</label>
+                <span id="videoBgBlurVal" class="tag-badge" style="color:#a7f3d0">20px</span>
+              </div>
+              <input
+                type="range"
+                id="videoBgBlur"
+                min="0"
+                max="80"
+                value="20"
+                class="stem-fader"
+                oninput="app.updateVideoBgSettings()"
+              />
+            </div>
+
+            <div class="control-group">
+              <label for="videoBgMotion" class="control-label">Camera Motion Effect</label>
+              <select id="videoBgMotion" class="studio-select" onchange="app.updateVideoBgSettings()">
+                <option value="ken-burns">🎬 Cinematic Zoom-In &amp; Drift (Slow Zoom + Pan)</option>
+                <option value="zoom_out">🔍 Reverse Zoom-Out (Dramatic Reveal)</option>
+                <option value="pan_drift">🌊 Fluid Orbital Pan (Smooth Horizontal Sweep)</option>
+                <option value="pulse">🔊 Pure Bass Subwoofer Pump (Intense Beat React)</option>
+                <option value="handheld">📹 Organic Handheld Cam (Natural Human Sway)</option>
+                <option value="hyperspace">🌌 3D Parallax &amp; Dutch Angle Roll (Cyber Perspective)</option>
+                <option value="heartbeat">💓 Double-Pump Heartbeat Pulse (Rhythmic Surge)</option>
+                <option value="static">🛑 Lock-Off Static (Still Camera)</option>
+              </select>
             </div>
           </div>
 
-          <div class="control-group">
-            <span class="control-label">Visualizer Engine</span>
-            <div class="visualizer-style-selector">
-              <button class="style-btn active" data-vstyle="bars" onclick="app.setVideoStyle('bars')">📊 Bars</button>
-              <button class="style-btn" data-vstyle="wave" onclick="app.setVideoStyle('wave')">〰️ Neon Wave</button>
-              <button class="style-btn" data-vstyle="circular" onclick="app.setVideoStyle('circular')">⭕ Radial Ring</button>
+          <!-- TAB 3: ARTWORK & VINYL -->
+          <div id="vtab-artwork" class="studio-tab-pane">
+            <div class="control-group">
+              <span class="control-label">Artwork Presentation Mode</span>
+              <div class="visualizer-style-selector">
+                <button class="style-btn active" data-artmode="card" onclick="app.setVideoArtMode('card')">🎴 Glass Card</button>
+                <button class="style-btn" data-artmode="vinyl" onclick="app.setVideoArtMode('vinyl')">💿 Vinyl Record</button>
+                <button class="style-btn" data-artmode="none" onclick="app.setVideoArtMode('none')">🖼️ Backdrop Only</button>
+              </div>
+            </div>
+
+            <!-- Custom Album Artwork & Center Label Uploader -->
+            <div class="control-group">
+              <span class="control-label">Album Artwork / Vinyl Center Label Image</span>
+              <div style="display:flex;gap:0.45rem;align-items:center;flex-wrap:wrap">
+                <input
+                  type="file"
+                  id="videoArtFileInput"
+                  accept="image/*"
+                  style="display:none"
+                  onchange="app.handleCustomArtUpload(event)"
+                />
+                <button class="btn btn-cyan btn-sm" onclick="document.getElementById('videoArtFileInput').click()">
+                  📂 Upload Album Art / Vinyl Label
+                </button>
+                <button id="btnClearVideoArt" class="btn btn-ghost btn-sm" style="display:none" onclick="app.clearCustomArt()">
+                  ✕ Reset to Song Art
+                </button>
+              </div>
+              <div id="videoArtStatusText" style="font-size:0.75rem;color:var(--text-muted);margin-top:0.25rem">
+                Using Song Artwork
+              </div>
+            </div>
+
+            <div class="control-group">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <label for="videoArtScale" class="control-label">Artwork Size Scale</label>
+                <span id="videoArtScaleVal" class="tag-badge" style="color:#fde68a">44%</span>
+              </div>
+              <input
+                type="range"
+                id="videoArtScale"
+                min="30"
+                max="70"
+                value="44"
+                class="stem-fader"
+                oninput="app.updateVideoArtSettings()"
+              />
+            </div>
+
+            <div class="control-group">
+              <label for="videoArtCorners" class="control-label">Card Corner Rounding</label>
+              <select id="videoArtCorners" class="studio-select" onchange="app.updateVideoArtSettings()">
+                <option value="28">✨ Smooth Rounded (28px - Glassmorphism Default)</option>
+                <option value="0">⬛ Sharp Square (0px - Modern Brutalist)</option>
+                <option value="8">📐 Subtle Soft Edge (8px - Clean Tech)</option>
+                <option value="16">📱 Modern UI (16px - Streaming App)</option>
+                <option value="44">🍏 Extra Deep Squircle (44px - iOS App Curve)</option>
+                <option value="64">💊 Ultra Pill Oval (64px - Modern Fluid)</option>
+                <option value="circle">💿 Circular Disc (360° Circular Avatar)</option>
+                <option value="stadium">🏟️ Stadium Capsule (Full Symmetrical Pill)</option>
+                <option value="hex">⬡ Hexagonal Shield (Cyberpunk / Futuristic)</option>
+                <option value="diamond">💎 Diamond Rhombus (45° Angled Frame)</option>
+                <option value="chamfer">🎟️ Chamfered Bevel (Angled Notched VIP Pass)</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <label for="videoArtGlow" class="control-label">Glow & Shadow Intensity</label>
+                <span id="videoArtGlowVal" class="tag-badge" style="color:#ddd6fe">70%</span>
+              </div>
+              <input
+                type="range"
+                id="videoArtGlow"
+                min="0"
+                max="100"
+                value="70"
+                class="stem-fader"
+                oninput="app.updateVideoArtSettings()"
+              />
             </div>
           </div>
 
-          <div class="control-group">
-            <span class="control-label">Color Theme</span>
-            <div class="theme-swatches-row">
-              <button class="theme-swatch-btn active" data-vtheme="sunset" onclick="app.setVideoTheme('sunset')">
-                <span class="swatch-dot" style="background:linear-gradient(135deg,#fbbf24,#f43f5e)"></span>
-                <span>Sunset</span>
-              </button>
-              <button class="theme-swatch-btn" data-vtheme="cyber" onclick="app.setVideoTheme('cyber')">
-                <span class="swatch-dot" style="background:linear-gradient(135deg,#22d3ee,#a855f7)"></span>
-                <span>Cyber</span>
-              </button>
-              <button class="theme-swatch-btn" data-vtheme="emerald" onclick="app.setVideoTheme('emerald')">
-                <span class="swatch-dot" style="background:linear-gradient(135deg,#34d399,#06b6d4)"></span>
-                <span>Emerald</span>
-              </button>
-              <button class="theme-swatch-btn" data-vtheme="mono" onclick="app.setVideoTheme('mono')">
-                <span class="swatch-dot" style="background:linear-gradient(135deg,#f8fafc,#64748b)"></span>
-                <span>Mono</span>
-              </button>
+          <!-- TAB 4: VISUALIZER & FX -->
+          <div id="vtab-visualizer" class="studio-tab-pane">
+            <label class="karaoke-toggle-row">
+              <span>📊 Render Audio Frequency Visualizer</span>
+              <input type="checkbox" id="chkVideoVisualizer" checked onchange="app.toggleVideoVisualizer(this.checked)" />
+            </label>
+
+            <div class="control-group">
+              <span class="control-label">Visualizer Engine Style</span>
+              <div class="visualizer-style-selector" style="grid-template-columns: repeat(5, 1fr)">
+                <button class="style-btn active" data-vstyle="bars" onclick="app.setVideoStyle('bars')">📊 Bars</button>
+                <button class="style-btn" data-vstyle="wave" onclick="app.setVideoStyle('wave')">〰️ Wave</button>
+                <button class="style-btn" data-vstyle="circular" onclick="app.setVideoStyle('circular')">⭕ Radial</button>
+                <button class="style-btn" data-vstyle="mirrored_bars" onclick="app.setVideoStyle('mirrored_bars')">🪞 Mirror</button>
+                <button class="style-btn" data-vstyle="none" onclick="app.setVideoStyle('none')">🚫 None</button>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label for="videoVizPosition" class="control-label">Visualizer Screen Alignment &amp; Position</label>
+              <select id="videoVizPosition" class="studio-select" onchange="app.updateVideoVizPosition(this.value)">
+                <option value="below_artwork">🎯 Centered Directly Below Artwork (Symmetrical Balance)</option>
+                <option value="center_screen">⚖️ Screen Horizon Equator (Center Height)</option>
+                <option value="bottom_dock">⚓ Bottom Screen Dock (Grounded Audio Base)</option>
+                <option value="around_artwork">⭕ Circular Halo Around Disc / Card</option>
+                <option value="split_side">🔀 Right-Side Split (16:9 Landscape Cinema)</option>
+                <option value="custom">🎯 Custom Freeform Drag Position (Dragged on Canvas)</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <label for="videoVizWidth" class="control-label">Visualizer Width Scale</label>
+                <span id="videoVizWidthVal" class="tag-badge" style="color:#ddd6fe">74%</span>
+              </div>
+              <input
+                type="range"
+                id="videoVizWidth"
+                min="25"
+                max="98"
+                value="74"
+                class="stem-fader"
+                oninput="app.updateVideoVizDimensions()"
+              />
+            </div>
+
+            <div class="control-group">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <label for="videoVizHeight" class="control-label">Visualizer Peak Bar Height</label>
+                <span id="videoVizHeightVal" class="tag-badge" style="color:#ddd6fe">120px</span>
+              </div>
+              <input
+                type="range"
+                id="videoVizHeight"
+                min="40"
+                max="260"
+                value="120"
+                class="stem-fader"
+                oninput="app.updateVideoVizDimensions()"
+              />
+            </div>
+
+            <div class="control-group">
+              <span class="control-label">Color Themes & Presets</span>
+              <div class="theme-swatches-row">
+                <button class="theme-swatch-btn active" data-vtheme="sunset" onclick="app.setVideoTheme('sunset')">
+                  <span class="swatch-dot" style="background:linear-gradient(135deg,#fbbf24,#f43f5e)"></span>
+                  <span>Sunset</span>
+                </button>
+                <button class="theme-swatch-btn" data-vtheme="cyber" onclick="app.setVideoTheme('cyber')">
+                  <span class="swatch-dot" style="background:linear-gradient(135deg,#22d3ee,#a855f7)"></span>
+                  <span>Cyber</span>
+                </button>
+                <button class="theme-swatch-btn" data-vtheme="emerald" onclick="app.setVideoTheme('emerald')">
+                  <span class="swatch-dot" style="background:linear-gradient(135deg,#34d399,#06b6d4)"></span>
+                  <span>Emerald</span>
+                </button>
+                <button class="theme-swatch-btn" data-vtheme="mono" onclick="app.setVideoTheme('mono')">
+                  <span class="swatch-dot" style="background:linear-gradient(135deg,#f8fafc,#64748b)"></span>
+                  <span>Mono</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <span class="control-label">Custom Accent Colors</span>
+              <div style="display:flex;align-items:center;gap:0.75rem;background:rgba(255,255,255,0.03);padding:0.45rem 0.65rem;border-radius:var(--radius-sm)">
+                <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.75rem;color:var(--text-secondary)">
+                  Primary
+                  <input type="color" id="videoCustomPrimary" value="#fbbf24" style="background:none;border:none;cursor:pointer;width:24px;height:24px" onchange="app.updateCustomVideoColors()" />
+                </label>
+                <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.75rem;color:var(--text-secondary)">
+                  Secondary
+                  <input type="color" id="videoCustomSecondary" value="#f43f5e" style="background:none;border:none;cursor:pointer;width:24px;height:24px" onchange="app.updateCustomVideoColors()" />
+                </label>
+                <button class="btn btn-ghost btn-sm" style="font-size:0.7rem;margin-left:auto" onclick="app.resetCustomVideoColors()">Reset</button>
+              </div>
+            </div>
+
+            <label class="karaoke-toggle-row">
+              <span>✨ Floating Audio-Reactive Starfield Particles</span>
+              <input type="checkbox" id="videoShowParticles" checked onchange="app.toggleVideoParticles(this.checked)" />
+            </label>
+          </div>
+
+          <!-- TAB 5: LYRICS & FONTS -->
+          <div id="vtab-lyrics" class="studio-tab-pane">
+            <label class="karaoke-toggle-row">
+              <span>🎤 Burn-In Synchronized Karaoke Lyrics</span>
+              <input type="checkbox" id="chkVideoLyrics" checked onchange="app.toggleVideoLyrics(this.checked)" />
+            </label>
+
+            <!-- Lyric Animation Style Presets -->
+            <div class="control-group">
+              <label for="videoLyricAnimSelect" class="control-label">Lyric Animation Style (TikTok / Reels / Stories)</label>
+              <select id="videoLyricAnimSelect" class="studio-select" onchange="app.setVideoLyricAnimation(this.value)">
+                <option value="capcut_bounce">💥 CapCut Bouncy Pop (Spring Scale &amp; Neon Glow)</option>
+                <option value="highlighter">🏷️ Viral Shorts Highlighter (Energetic Glowing Pill)</option>
+                <option value="karaoke_wipe">🌊 Liquid Karaoke Wipe (Smooth Color Fill)</option>
+                <option value="floating_wave">〰️ Kinetic Floating Wave (Harmonic Shimmer)</option>
+                <option value="glitch_pulse">⚡ Cyberpunk Glitch Pulse (Chromatic RGB Shake)</option>
+                <option value="typewriter">⌨️ Terminal Typewriter (Letter-by-Letter &amp; Blinking Cursor)</option>
+                <option value="zoom_impact">🔨 Beast Mode Stomp (Kinetic Slam &amp; Flash Impact)</option>
+                <option value="neon_flicker">🏮 Tokyo Neon Sign (Electric Glow Tube Flicker)</option>
+                <option value="color_cascade">🌈 Chromatic Cascade (Iridescent Hue Shifting)</option>
+                <option value="fade_slide_up">✨ Cinematic Lift (Smooth Slide-Up &amp; Atmospheric Glow)</option>
+                <option value="spotlight_scale">🔦 Focus Spotlight (Depth Blur &amp; Golden Highlight)</option>
+                <option value="classic">📄 Classic Broadcast Line (Clean Fade)</option>
+              </select>
+            </div>
+
+            <!-- Online Fetch, Import & Reset Toolbar -->
+            <div class="control-group">
+              <span class="control-label">Lyric Sources &amp; Sync</span>
+              <div style="display:flex;gap:0.45rem;flex-wrap:wrap">
+                <button id="btnFetchOnlineLyrics" class="btn btn-purple btn-sm" onclick="app.fetchOnlineLyricsForVideo()">
+                  🌐 Search Online (LRCLIB)
+                </button>
+                <input
+                  type="file"
+                  id="videoLyricsFileInput"
+                  accept=".lrc,.srt,.txt"
+                  style="display:none"
+                  onchange="app.handleLyricsFileUpload(event)"
+                />
+                <button class="btn btn-secondary btn-sm" onclick="document.getElementById('videoLyricsFileInput').click()">
+                  📂 Import .LRC / .TXT
+                </button>
+                <button class="btn btn-ghost btn-sm" onclick="app.resetLyricsFromSong()">
+                  ✨ Reset to Suno Lyrics
+                </button>
+                <button id="btnToggleTapSync" class="btn btn-primary btn-sm" onclick="app.toggleTapToSync()" title="Listen to song and tap Spacebar to stamp exact line timings">
+                  🎙️ Tap-to-Sync (Spacebar)
+                </button>
+              </div>
+              <div id="videoLyricsStatusText" style="font-size:0.75rem;color:var(--text-muted);margin-top:0.2rem">
+                Ready
+              </div>
+
+              <!-- Tap-to-Sync Interactive Station -->
+              <div id="tapSyncPanel" class="tap-sync-panel" style="display:none;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:var(--radius-md);padding:0.75rem;margin-top:0.4rem">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.4rem">
+                  <span style="font-weight:700;font-size:0.75rem;color:#fbbf24">🎙️ Live Tap-to-Sync Active</span>
+                  <span id="tapSyncProgress" style="font-size:0.72rem;color:#cbd5e1">Line 1 of 0</span>
+                </div>
+                <div id="tapSyncCurrentLine" style="font-size:0.88rem;font-weight:700;color:#ffffff;background:rgba(0,0,0,0.5);padding:0.6rem;border-radius:var(--radius-sm);min-height:2.4rem;display:flex;align-items:center">
+                  Press Spacebar on each phrase start
+                </div>
+                <div id="tapSyncNextLine" style="font-size:0.72rem;color:#94a3b8;margin:0.35rem 0 0.5rem 0.2rem">
+                  Next: ...
+                </div>
+                <div style="display:flex;gap:0.45rem">
+                  <button id="btnTapSyncAction" class="btn btn-primary btn-sm" style="flex:1" onclick="app.tapNextLyricLine()">
+                    👉 Tap Next Line (Spacebar)
+                  </button>
+                  <button class="btn btn-ghost btn-sm" onclick="app.finishTapToSync(true)">Finish</button>
+                  <button class="btn btn-ghost btn-sm" onclick="app.cancelTapToSync()">Cancel</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Live Lyrics Textarea -->
+            <div class="control-group">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <label for="videoLyricsTextarea" class="control-label">Live Lyrics Editor (Timed [mm:ss.xx] or Plain Text)</label>
+                <span id="videoLyricCuesCount" class="tag-badge">0 cues</span>
+              </div>
+              <textarea
+                id="videoLyricsTextarea"
+                class="form-control"
+                rows="6"
+                style="font-family:var(--font-mono);font-size:0.75rem;line-height:1.45;resize:vertical"
+                placeholder="[00:12.40] First line of synchronized lyrics...&#10;[00:16.80] Second line of lyrics...&#10;(or paste plain text lines)"
+                oninput="app.updateVideoLyricsText()"
+              ></textarea>
+            </div>
+
+            <div class="control-group">
+              <label for="videoFontFamily" class="control-label">Typography / Font Family</label>
+              <select id="videoFontFamily" class="studio-select" onchange="app.updateVideoFont(this.value)">
+                <option value="Inter">Inter (Clean Modern Sans)</option>
+                <option value="Playfair Display">Playfair Display (Cinematic Serif)</option>
+                <option value="Montserrat">Montserrat (Bold Punchy Pop)</option>
+                <option value="Orbitron">Orbitron (Cyberpunk / Futuristic)</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label for="videoLyricPos" class="control-label">Lyric Positioning</label>
+              <select id="videoLyricPos" class="studio-select" onchange="app.updateVideoLyricPos(this.value)">
+                <option value="lower-third">Lower-Third (Broadcast Default)</option>
+                <option value="center">Center Focus (Stories / Reels)</option>
+                <option value="top">Top Header</option>
+              </select>
             </div>
           </div>
 
-          <label class="karaoke-toggle-row">
-            <span>🎤 Burn-In Synchronized Karaoke Lyrics</span>
-            <input type="checkbox" id="chkVideoLyrics" checked onchange="app.toggleVideoLyrics(this.checked)" />
-          </label>
+          <!-- TAB 6: EXPORT SETTINGS -->
+          <div id="vtab-export" class="studio-tab-pane">
+            <div class="control-group">
+              <span class="control-label">Aspect Ratio (Format)</span>
+              <div class="aspect-ratio-selector">
+                <button class="ratio-btn active" data-ratio="1:1" onclick="app.setVideoAspectRatio('1:1')">
+                  Square 1:1<br /><span style="font-size:0.65rem;color:var(--text-muted)">Instagram/Post</span>
+                </button>
+                <button class="ratio-btn" data-ratio="9:16" onclick="app.setVideoAspectRatio('9:16')">
+                  Vertical 9:16<br /><span style="font-size:0.65rem;color:var(--text-muted)">TikTok/Reels</span>
+                </button>
+                <button class="ratio-btn" data-ratio="16:9" onclick="app.setVideoAspectRatio('16:9')">
+                  Landscape 16:9<br /><span style="font-size:0.65rem;color:var(--text-muted)">YouTube HD</span>
+                </button>
+              </div>
+            </div>
 
+            <div class="control-group">
+              <label for="videoFpsSelect" class="control-label">Frame Rate (FPS)</label>
+              <select id="videoFpsSelect" class="studio-select" onchange="app.setVideoFps(this.value)">
+                <option value="60">60 FPS (Ultra Fluid Spectrum & Particles)</option>
+                <option value="30">30 FPS (Standard Web)</option>
+              </select>
+            </div>
+
+            <div class="control-group">
+              <label for="videoBitrateSelect" class="control-label">Master Video Bitrate</label>
+              <select id="videoBitrateSelect" class="studio-select" onchange="app.setVideoBitrate(this.value)">
+                <option value="12">12 Mbps (High-Definition Studio Master)</option>
+                <option value="16">16 Mbps (Master Broadcast 4K/UHD Ready)</option>
+                <option value="8">8 Mbps (Standard Web)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Progress Box & Render Action -->
           <div id="studioProgressBox" class="studio-progress-box" style="display:none">
             <div class="progress-bar-track">
               <div id="studioProgressBar" class="progress-bar-fill"></div>
@@ -728,13 +1227,10 @@
             id="btnStartVideoRender"
             class="btn btn-primary btn-lg"
             onclick="app.renderAndExportVideo()"
+            style="margin-top:auto"
           >
             <span>🎬 Render & Export 1080p Video</span>
           </button>
-
-          <p style="font-size:0.73rem;color:var(--text-muted);line-height:1.4">
-            Renders a 1080p music video with cover art glow, live audio spectrum, synchronized karaoke lyrics captions, and master audio.
-          </p>
         </div>
       </div>
     </div>
@@ -823,6 +1319,213 @@
     </div>
   </div>
 
+  <!-- ===================================================================== -->
+  <!-- INDIVIDUAL METADATA & ID3 TAG EDITOR MODAL                            -->
+  <!-- ===================================================================== -->
+  <div id="metaModal" class="modal-overlay">
+    <div class="modal-content" style="max-width:580px">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🏷️</span>
+          <span>Metadata &amp; ID3 Tag Editor</span>
+        </div>
+        <button data-close-modal class="btn btn-ghost btn-icon">✕</button>
+      </div>
+
+      <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:0.75rem">
+        Customize the title, artist, album, track number, genre, lyrics, and artwork embedded directly into your exported audio files and ZIP bundles.
+      </p>
+
+      <form id="metaEditorForm" onsubmit="event.preventDefault(); app.saveMetaModal();" style="display:flex;flex-direction:column;gap:0.85rem">
+        <input type="hidden" id="editMetaUuid" />
+
+        <div style="display:grid;grid-template-columns:110px 1fr;gap:1rem;align-items:start">
+          <!-- Cover Art Preview & Upload -->
+          <div style="display:flex;flex-direction:column;align-items:center;gap:0.4rem">
+            <div style="width:105px;height:105px;border-radius:8px;overflow:hidden;border:1px solid var(--border-color);background:#000;display:flex;align-items:center;justify-content:center">
+              <img id="editMetaCoverPreview" src="assets/icon.svg" alt="Cover Preview" style="width:100%;height:100%;object-fit:cover" />
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" style="font-size:0.68rem;padding:0.25rem 0.5rem" onclick="document.getElementById('editMetaCoverInput').click()">
+              🖼 Change Art
+            </button>
+            <input type="file" id="editMetaCoverInput" accept="image/jpeg,image/png,image/webp" style="display:none" onchange="app.handleCustomCoverUpload(event)" />
+          </div>
+
+          <!-- Main Text Fields -->
+          <div style="display:flex;flex-direction:column;gap:0.55rem">
+            <div>
+              <label for="editMetaTitle" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary)">Track Title (TIT2)</label>
+              <input type="text" id="editMetaTitle" class="form-control" required style="font-size:0.85rem;padding:0.4rem 0.65rem" />
+            </div>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">
+              <div>
+                <label for="editMetaArtist" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary)">Artist (TPE1)</label>
+                <input type="text" id="editMetaArtist" class="form-control" style="font-size:0.85rem;padding:0.4rem 0.65rem" />
+              </div>
+              <div>
+                <label for="editMetaAlbum" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary)">Album / Collection (TALB)</label>
+                <input type="text" id="editMetaAlbum" class="form-control" style="font-size:0.85rem;padding:0.4rem 0.65rem" />
+              </div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:90px 100px 1fr;gap:0.5rem">
+              <div>
+                <label for="editMetaTrack" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary)">Track # (TRCK)</label>
+                <input type="text" id="editMetaTrack" class="form-control" placeholder="01/10" style="font-size:0.85rem;padding:0.4rem 0.65rem" />
+              </div>
+              <div>
+                <label for="editMetaYear" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary)">Year (TYER)</label>
+                <input type="text" id="editMetaYear" class="form-control" placeholder="2026" style="font-size:0.85rem;padding:0.4rem 0.65rem" />
+              </div>
+              <div>
+                <label for="editMetaGenre" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary)">Genre / Styles (TCON)</label>
+                <input type="text" id="editMetaGenre" class="form-control" placeholder="Pop, Synthwave" style="font-size:0.85rem;padding:0.4rem 0.65rem" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <label for="editMetaLyrics" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary)">Song Lyrics &amp; Prompt (USLT)</label>
+          <textarea id="editMetaLyrics" class="form-control" rows="4" style="font-size:0.8rem;line-height:1.45;resize:vertical" placeholder="Enter song lyrics..."></textarea>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:0.6rem;margin-top:0.35rem">
+          <button type="button" data-close-modal class="btn btn-secondary btn-sm">Cancel</button>
+          <button type="submit" class="btn btn-accent btn-sm" style="font-weight:700">💾 Save Metadata Tags</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- BATCH / PLAYLIST METADATA TAG EDITOR MODAL                            -->
+  <!-- ===================================================================== -->
+  <div id="batchMetaModal" class="modal-overlay">
+    <div class="modal-content" style="max-width:540px">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🏷️</span>
+          <span>Batch Tag All Tracks</span>
+        </div>
+        <button data-close-modal class="btn btn-ghost btn-icon">✕</button>
+      </div>
+
+      <p style="font-size:0.82rem;color:var(--text-secondary);margin-bottom:0.75rem">
+        Apply common album and artist information across all tracks in your deck while keeping each track's unique title and automatically sequencing track numbers.
+      </p>
+
+      <form onsubmit="event.preventDefault(); app.saveBatchMetaModal();" style="display:flex;flex-direction:column;gap:0.85rem">
+        <div>
+          <label for="batchAlbum" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary)">Album / Playlist Title (TALB)</label>
+          <input type="text" id="batchAlbum" class="form-control" placeholder="e.g. Best of Suno 2026" required style="font-size:0.85rem;padding:0.45rem 0.65rem" />
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.6rem">
+          <div>
+            <label for="batchArtist" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary)">Artist / Creator (TPE1)</label>
+            <input type="text" id="batchArtist" class="form-control" placeholder="e.g. Suno Studio &amp; Producer" style="font-size:0.85rem;padding:0.45rem 0.65rem" />
+          </div>
+          <div>
+            <label for="batchYear" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary)">Release Year (TYER)</label>
+            <input type="text" id="batchYear" class="form-control" placeholder="2026" style="font-size:0.85rem;padding:0.45rem 0.65rem" />
+          </div>
+        </div>
+
+        <div>
+          <label for="batchGenre" style="font-size:0.75rem;font-weight:700;color:var(--text-secondary)">Genre (TCON)</label>
+          <input type="text" id="batchGenre" class="form-control" placeholder="e.g. Electronic, Pop, AI Melodies" style="font-size:0.85rem;padding:0.45rem 0.65rem" />
+        </div>
+
+        <div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0">
+          <input type="checkbox" id="batchAutoNumber" checked style="accent-color:var(--accent-amber);cursor:pointer" />
+          <label for="batchAutoNumber" style="font-size:0.8rem;color:var(--text-primary);cursor:pointer">
+            Automatically sequence track numbers (01/N, 02/N, 03/N...)
+          </label>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;gap:0.6rem;margin-top:0.35rem">
+          <button type="button" data-close-modal class="btn btn-secondary btn-sm">Cancel</button>
+          <button type="submit" class="btn btn-cyan btn-sm" style="font-weight:700">Apply to All Tracks</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- BULK DOWNLOAD ALL TRACKS AS SINGLE .ZIP MODAL                         -->
+  <!-- ===================================================================== -->
+  <div id="bulkDownloadModal" class="modal-overlay">
+    <div class="modal-content" style="max-width:560px">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>⚡</span>
+          <span>Bulk Download &amp; Zip All Tracks</span>
+        </div>
+        <button data-close-modal class="btn btn-ghost btn-icon">✕</button>
+      </div>
+
+      <p style="font-size:0.83rem;color:var(--text-secondary);line-height:1.45">
+        Download your entire playlist or multi-URL queue at once. All tracks are decrypted, converted to your chosen format with your custom embedded tags, and packaged into a single <strong style="color:#6ee7b7">.ZIP</strong> file.
+      </p>
+
+      <div style="display:flex;flex-direction:column;gap:1rem;margin:1rem 0">
+        <div>
+          <label style="font-size:0.76rem;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:0.45rem">Select Audio Format:</label>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(150px, 1fr));gap:0.6rem">
+            <label class="preset-chip active" style="display:flex;flex-direction:column;align-items:flex-start;padding:0.65rem 0.85rem;cursor:pointer">
+              <div style="display:flex;align-items:center;gap:0.45rem;width:100%">
+                <input type="radio" name="bulkFormatRadio" value="mp3" checked style="accent-color:#10b981" />
+                <strong style="color:#6ee7b7">MP3 (320kbps)</strong>
+              </div>
+              <span style="font-size:0.7rem;color:var(--text-muted);margin-top:0.2rem">Embedded ID3v2.3 tags, cover art &amp; lyrics</span>
+            </label>
+
+            <label class="preset-chip" style="display:flex;flex-direction:column;align-items:flex-start;padding:0.65rem 0.85rem;cursor:pointer">
+              <div style="display:flex;align-items:center;gap:0.45rem;width:100%">
+                <input type="radio" name="bulkFormatRadio" value="wav" style="accent-color:#10b981" />
+                <strong style="color:#38bdf8">WAV (16-Bit)</strong>
+              </div>
+              <span style="font-size:0.7rem;color:var(--text-muted);margin-top:0.2rem">Lossless uncompressed studio PCM</span>
+            </label>
+
+            <label class="preset-chip" style="display:flex;flex-direction:column;align-items:flex-start;padding:0.65rem 0.85rem;cursor:pointer">
+              <div style="display:flex;align-items:center;gap:0.45rem;width:100%">
+                <input type="radio" name="bulkFormatRadio" value="m4a" style="accent-color:#10b981" />
+                <strong style="color:#f59e0b">M4A Master</strong>
+              </div>
+              <span style="font-size:0.7rem;color:var(--text-muted);margin-top:0.2rem">Untouched bit-perfect AAC stream</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Progress Card -->
+        <div id="bulkDownloadProgressWrap" style="display:none;background:rgba(0,0,0,0.3);border:1px solid var(--border-color);border-radius:8px;padding:0.85rem">
+          <div class="progress-bar-track">
+            <div id="bulkDownloadProgressBar" class="progress-bar-fill" style="width:0%;background:linear-gradient(90deg,#10b981,#06b6d4)"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:0.45rem;font-size:0.75rem">
+            <span id="bulkDownloadStatusText" style="color:var(--text-secondary)">Preparing batch download...</span>
+            <strong id="bulkDownloadProgressPct" style="color:#6ee7b7">0%</strong>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:0.6rem">
+        <button type="button" data-close-modal class="btn btn-secondary btn-sm">Close</button>
+        <button
+          id="btnStartBulkDownload"
+          onclick="app.startBulkDownload()"
+          class="btn btn-primary btn-sm"
+          style="background:linear-gradient(135deg, #10b981 0%, #059669 100%);border-color:#10b981;font-weight:700"
+        >
+          🚀 Start Bulk Download &amp; ZIP
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toastContainer" class="toast-container"></div>
 
@@ -833,7 +1536,7 @@
     <div class="app-container footer-inner">
       <div class="footer-top">
         <div>
-          <strong style="color:var(--text-primary);font-size:0.95rem">Suno Downloader Pro • 2026 Studio Edition</strong>
+          <strong style="color:var(--text-primary);font-size:0.95rem">NTK Hub • Suno Studio Edition</strong>
           <p style="font-size:0.775rem;color:var(--text-muted);margin-top:0.25rem">
             Hybrid HTDemucs v4 neural stem separator, audio trimmer, mastering FX, ID3v2.3 tagger, ZIP packager &amp; 1080p karaoke video studio.
           </p>

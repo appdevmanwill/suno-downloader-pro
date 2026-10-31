@@ -38,7 +38,7 @@ export class BookmarkletEngine {
           t = t.replace(/[<>:"/\\\\|?*]/g, '').trim().slice(0, 60) || 'Suno_Song';
 
           h.innerHTML = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-            '<span style="font-weight:800;font-size:15px;color:#fbbf24;display:flex;align-items:center;gap:6px;"><span>🪄</span><span>Suno Downloader Pro</span></span>' +
+            '<span style="font-weight:800;font-size:15px;color:#fbbf24;display:flex;align-items:center;gap:6px;"><span>🪄</span><span>NTK Hub • Suno Studio</span></span>' +
             '<button id="sm-close" style="background:none;border:none;color:#94a3b8;font-size:18px;cursor:pointer;padding:2px 6px;">✕</button>' +
             '</div>' +
             '<div style="font-size:13px;font-weight:700;color:#f8fafc;margin-bottom:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">🎵 ' + t + '</div>' +
@@ -99,8 +99,9 @@ export class BookmarkletEngine {
           act.innerHTML =
             '<button id="sm-dl-m4a" style="padding:10px;border-radius:12px;border:none;background:linear-gradient(90deg,#fbbf24,#f43f5e);color:#0f172a;font-weight:800;font-size:12px;cursor:pointer;">⬇ Download Original Master (.m4a)</button>' +
             '<button id="sm-dl-wav" style="padding:10px;border-radius:12px;border:1px solid rgba(16,185,129,0.5);background:rgba(16,185,129,0.2);color:#6ee7b7;font-weight:800;font-size:12px;cursor:pointer;">⬇ Download Studio WAV (Lossless)</button>' +
-            '<button id="sm-dl-stems" style="padding:10px;border-radius:12px;border:1px solid rgba(6,182,212,0.5);background:rgba(6,182,212,0.2);color:#67e8f9;font-weight:800;font-size:12px;cursor:pointer;">🎛️ Open in 4-Stem Neural AI Studio (HTDemucs v4)</button>' +
-            '<button id="sm-dl-video" style="padding:10px;border-radius:12px;border:1px solid rgba(139,92,246,0.5);background:rgba(139,92,246,0.2);color:#c4b5fd;font-weight:800;font-size:12px;cursor:pointer;">🎬 Download Suno Video (.mp4)</button>' +
+            '<button id="sm-dl-stems" style="padding:10px;border-radius:12px;border:1px solid rgba(6,182,212,0.5);background:rgba(6,182,212,0.2);color:#67e8f9;font-weight:800;font-size:12px;cursor:pointer;">🎛️ Open in NTK Hub 4-Stem AI Studio</button>' +
+            '<button id="sm-dl-karaoke" style="padding:10px;border-radius:12px;border:1px solid rgba(245,158,11,0.5);background:rgba(245,158,11,0.18);color:#fde68a;font-weight:800;font-size:12px;cursor:pointer;">🎬 Open in 1080p Karaoke Video Studio</button>' +
+            '<button id="sm-dl-video" style="padding:8px;border-radius:10px;border:1px solid rgba(139,92,246,0.5);background:rgba(139,92,246,0.2);color:#c4b5fd;font-weight:700;font-size:11px;cursor:pointer;">📹 Download Raw Suno Clip (.mp4)</button>' +
             '<button id="sm-dl-img" style="padding:7px;border-radius:10px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#cbd5e1;font-weight:600;font-size:11px;cursor:pointer;">🖼 Download Cover Art (.jpeg)</button>';
 
           // Auto-trigger default master download
@@ -143,10 +144,31 @@ export class BookmarkletEngine {
             }
           };
 
-          document.getElementById('sm-dl-stems').onclick = function() {
+          var launchStudio = function(mode) {
+            var p = '';
+            try {
+              var html = document.documentElement.innerHTML || '';
+              var pm = html.match(/"prompt"\\s*:\\s*"\\$([0-9a-fA-F]+)"/);
+              if (pm) {
+                var re = new RegExp('(?:^|[\\\\r\\\\n])' + pm[1] + ':T([0-9a-fA-F]+),([\\\\s\\\\S]*?)');
+                var idx = html.indexOf(pm[1] + ':T');
+                if (idx !== -1) {
+                  var sub = html.slice(idx);
+                  var cm = sub.match(/^[0-9a-fA-F]+:T([0-9a-fA-F]+),([\\s\\S]*)/);
+                  if (cm) {
+                    p = cm[2].slice(0, parseInt(cm[1], 16)).replace(/\\\\n/g, '\\n').replace(/\\\\"/g, '"').trim();
+                  }
+                }
+              }
+            } catch (ex) {}
+            var payload = { title: t, prompt: p, rights: { glt: data.glt, key: data.key, iv: data.iv } };
+            var b64 = btoa(unescape(encodeURIComponent(JSON.stringify(payload))));
             var sep = studioUrl.indexOf('?') !== -1 ? '&' : '?';
-            window.open(studioUrl + sep + 'song=' + u + '&open=stems', '_blank');
+            window.open(studioUrl + sep + 'song=' + u + '&open=' + mode + '#bridge=' + encodeURIComponent(b64), '_blank');
           };
+
+          document.getElementById('sm-dl-stems').onclick = function() { launchStudio('stems'); };
+          document.getElementById('sm-dl-karaoke').onclick = function() { launchStudio('video'); };
 
           document.getElementById('sm-dl-video').onclick = function() {
             window.open('https://cdn1.suno.ai/' + u + '.mp4', '_blank');
@@ -173,9 +195,9 @@ export class BookmarkletEngine {
   static getUserscriptCode() {
     const bookmarkletUrl = BookmarkletEngine.getBookmarkletUrl();
     return `// ==UserScript==
-// @name         Suno Downloader Pro • 2026 Studio Edition
-// @namespace    suno-downloader-pro
-// @version      4.0.0
+// @name         NTK Hub • Suno Studio Edition
+// @namespace    ntk-hub-suno-studio
+// @version      4.1.0
 // @description  1-Click direct audio & video downloader with Mango DRM decryption and HTDemucs v4 4-Stem AI Studio launcher
 // @match        https://suno.com/*
 // @grant        none

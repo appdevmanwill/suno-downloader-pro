@@ -1169,3 +1169,26 @@
   font-size: 0.69rem;
   color: var(--text-muted);
 }
+
+/* =========================================================================
+   Form Controls for Metadata & Batch Modals
+   ========================================================================= */
+.form-control {
+  width: 100%;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.85rem;
+  padding: 0.5rem 0.75rem;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.2);
+  background: rgba(0, 0, 0, 0.6);
+}

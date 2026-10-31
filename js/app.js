@@ -3,21 +3,21 @@
  * 2026 Studio Edition (HTDemucs v4 4-Stem Neural AI, Trimmer & FX, ID3v2.3, ZIP, Karaoke Video & PWA Vault)
  */
 
-import { SunoAPI } from './suno-api.js?v=2026.2';
-import { CryptoEngine } from './crypto-engine.js?v=2026.2';
-import { AudioConverter } from './audio-converter.js?v=2026.2';
-import { Mp3Encoder } from './mp3-encoder.js?v=2026.2';
-import { ID3Writer } from './id3-writer.js?v=2026.2';
-import { LyricsUtils } from './lyrics-utils.js?v=2026.2';
-import { VaultDB } from './vault-db.js?v=2026.2';
-import { StemEngine } from './stem-engine.js?v=2026.2';
-import { StemMixer } from './stem-mixer.js?v=2026.2';
-import { AudioFXEngine } from './audio-fx.js?v=2026.2';
-import { ZipPackager } from './zip-packager.js?v=2026.2';
-import { VideoGenerator } from './video-generator.js?v=2026.2';
-import { BookmarkletEngine } from './bookmarklet.js?v=2026.2';
-import { StorageManager } from './storage.js?v=2026.2';
-import { PlayerEngine } from './player.js?v=2026.2';
+import { SunoAPI } from './suno-api.js?v=2026.4';
+import { CryptoEngine } from './crypto-engine.js?v=2026.4';
+import { AudioConverter } from './audio-converter.js?v=2026.4';
+import { Mp3Encoder } from './mp3-encoder.js?v=2026.4';
+import { ID3Writer } from './id3-writer.js?v=2026.4';
+import { LyricsUtils } from './lyrics-utils.js?v=2026.4';
+import { VaultDB } from './vault-db.js?v=2026.4';
+import { StemEngine } from './stem-engine.js?v=2026.4';
+import { StemMixer } from './stem-mixer.js?v=2026.4';
+import { AudioFXEngine } from './audio-fx.js?v=2026.4';
+import { ZipPackager } from './zip-packager.js?v=2026.4';
+import { VideoGenerator } from './video-generator.js?v=2026.4';
+import { BookmarkletEngine } from './bookmarklet.js?v=2026.4';
+import { StorageManager } from './storage.js?v=2026.4';
+import { PlayerEngine } from './player.js?v=2026.4';
 
 class App {
   constructor() {
@@ -186,16 +186,37 @@ class App {
       if (uuids.length === 0) return;
 
       const uuid = uuids[0];
-      const existing = StorageManager.loadSongs().find((s) => s.uuid === uuid);
-      if (!existing) {
-        const meta = await SunoAPI.fetchMetadata(uuid);
-        meta.playerMode = 'custom';
-        meta.hasStem = true;
-        StorageManager.upsertSong(meta);
-        this.renderSongs();
+      let bridgePayload = null;
+      if (window.location.hash && window.location.hash.includes('bridge=')) {
+        try {
+          const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+          const b64 = hashParams.get('bridge');
+          if (b64) {
+            bridgePayload = JSON.parse(decodeURIComponent(escape(atob(b64))));
+          }
+        } catch (err) {}
       }
 
-      // Clean query params without reload
+      const existing = StorageManager.loadSongs().find((s) => s.uuid === uuid);
+      const meta = existing ? { ...existing } : await SunoAPI.fetchMetadata(uuid);
+      meta.playerMode = 'custom';
+      meta.hasStem = true;
+      meta.album = meta.album || 'NTK Hub';
+      if (bridgePayload) {
+        if (bridgePayload.title && !bridgePayload.title.startsWith('Suno_Song_')) {
+          meta.title = bridgePayload.title;
+        }
+        if (bridgePayload.prompt && bridgePayload.prompt.trim()) {
+          meta.prompt = bridgePayload.prompt.trim();
+        }
+        if (bridgePayload.rights && bridgePayload.rights.key && bridgePayload.rights.iv && bridgePayload.rights.glt) {
+          meta.rights = bridgePayload.rights;
+        }
+      }
+      StorageManager.upsertSong(meta);
+      this.renderSongs();
+
+      // Clean query & hash params without reload
       const cleanUrl = window.location.origin + window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
 
@@ -432,29 +453,65 @@ class App {
     const text = inputArea.value.trim();
 
     if (!text) {
-      this.showToast('Paste one or more Suno song links or UUIDs first.', 'amber');
+      this.showToast('Paste one or more Suno song links or playlist URLs first.', 'amber');
       inputArea.focus();
       return;
     }
 
-    const uuids = SunoAPI.extractUuids(text);
-    if (uuids.length === 0) {
-      this.showToast('No valid Suno song URL or UUID found (e.g. suno.com/song/...).', 'rose');
+    const { playlistUuids, songUuids } = SunoAPI.parseBatchInput(text);
+    if (playlistUuids.length === 0 && songUuids.length === 0) {
+      this.showToast('No valid Suno song or playlist link found (e.g. suno.com/song/... or suno.com/playlist/...).', 'rose');
       return;
     }
 
-    this.showToast(`Resolving ${uuids.length} song(s)...`, 'emerald');
     inputArea.value = '';
+    let totalAdded = 0;
 
-    for (const uuid of uuids) {
-      const meta = await SunoAPI.fetchMetadata(uuid);
-      meta.playerMode = 'custom';
-      meta.hasStem = true;
-      StorageManager.upsertSong(meta);
+    // Handle Playlists
+    for (const plId of playlistUuids) {
+      this.showToast(`Fetching Suno playlist ${plId.slice(0, 8)}...`, 'cyan');
+      try {
+        const plData = await SunoAPI.fetchPlaylist(plId);
+        const plName = plData.name || `Suno Playlist`;
+        const clips = plData.clips || [];
+        for (let i = 0; i < clips.length; i++) {
+          const clip = clips[i];
+          clip.album = plName;
+          clip.trackNumber = `${String(i + 1).padStart(2, '0')}/${String(clips.length).padStart(2, '0')}`;
+          clip.year = clip.year || String(new Date().getFullYear());
+          clip.artist = clip.artist || 'Suno AI Studio';
+          StorageManager.upsertSong(clip);
+          totalAdded++;
+        }
+        this.showToast(`Loaded playlist "${plName}" (${clips.length} tracks)!`, 'emerald');
+      } catch (err) {
+        this.showToast(`Playlist error: ${err.message}`, 'rose');
+      }
+    }
+
+    // Handle Individual Songs
+    if (songUuids.length > 0) {
+      this.showToast(`Resolving ${songUuids.length} individual song(s)...`, 'emerald');
+      for (const uuid of songUuids) {
+        try {
+          const meta = await SunoAPI.fetchMetadata(uuid);
+          meta.playerMode = 'custom';
+          meta.hasStem = true;
+          meta.artist = meta.artist || 'Suno AI Studio';
+          meta.album = meta.album || 'NTK Hub';
+          meta.year = meta.year || String(new Date().getFullYear());
+          StorageManager.upsertSong(meta);
+          totalAdded++;
+        } catch (e) {
+          console.warn(`Failed to resolve ${uuid}:`, e);
+        }
+      }
     }
 
     this.renderSongs();
-    this.showToast(`Added ${uuids.length} song(s) to your studio deck!`, 'emerald');
+    if (totalAdded > 0) {
+      this.showToast(`Added ${totalAdded} track(s) to your Studio Deck!`, 'emerald');
+    }
   }
 
   /**
@@ -488,12 +545,17 @@ class App {
     }
 
     onProgress('Requesting Mango DRM rights...');
-    let rights = null;
-    try {
-      rights = await SunoAPI.fetchRights(uuid);
-    } catch (err) {
-      this.openHelperModal(uuid);
-      throw err;
+    const storedSong = StorageManager.loadSongs().find((s) => s.uuid === uuid);
+    let rights = (storedSong && storedSong.rights && storedSong.rights.key && storedSong.rights.iv && storedSong.rights.glt)
+      ? storedSong.rights
+      : null;
+    if (!rights) {
+      try {
+        rights = await SunoAPI.fetchRights(uuid);
+      } catch (err) {
+        this.openHelperModal(uuid);
+        throw err;
+      }
     }
 
     onProgress('Downloading CloudFront encrypted audio...');
@@ -595,9 +657,14 @@ class App {
       this.setBtnLoading(`btn-mp3-${uuid}`, true, 'Tagging ID3...');
       const taggedMp3 = await ID3Writer.embedTags(rawMp3, {
         title: song.title,
+        artist: song.artist || 'Suno AI Studio',
+        album: song.album || 'NTK Hub',
+        trackNumber: song.trackNumber || '01/01',
+        year: song.year || String(new Date().getFullYear()),
         genre: song.tags,
         lyrics: song.prompt,
-        coverUrl: song.imageLarge
+        coverUrl: song.imageLarge,
+        coverBytes: song.customCoverBytes || null
       });
 
       const filename = this.makeSafeFilename(song.title, 'mp3');
@@ -733,6 +800,28 @@ class App {
       this.stemMixer.loadStems(stemBundle);
       this.syncStemConsoleControls('full');
 
+      const hasSplit = Boolean(stemBundle.lead_vocals && stemBundle.backing_vocals);
+      const stripVocals = document.getElementById('stem-strip-vocals');
+      const stripLead = document.getElementById('stem-strip-lead_vocals');
+      const stripBacking = document.getElementById('stem-strip-backing_vocals');
+      const splitBtn = document.getElementById('btnSplitVocals');
+
+      if (stripVocals) stripVocals.style.display = hasSplit ? 'none' : 'flex';
+      if (stripLead) stripLead.style.display = hasSplit ? 'flex' : 'none';
+      if (stripBacking) stripBacking.style.display = hasSplit ? 'flex' : 'none';
+
+      if (splitBtn) {
+        if (hasSplit) {
+          splitBtn.textContent = '✓ Split (Lead & Backing)';
+          splitBtn.classList.remove('btn-cyan');
+          splitBtn.classList.add('btn-secondary');
+        } else {
+          splitBtn.textContent = '🎙️ Split Vocals (Lead / Backing)';
+          splitBtn.classList.add('btn-cyan');
+          splitBtn.classList.remove('btn-secondary');
+        }
+      }
+
       if (engineBadge) engineBadge.textContent = `✓ ${stemBundle.engine || 'HTDemucs v4'}`;
       if (progressBar) progressBar.style.width = '100%';
       if (progressPct) progressPct.textContent = '100%';
@@ -805,8 +894,9 @@ class App {
 
   syncStemConsoleControls(activePreset = '') {
     const effGains = this.stemMixer.getEffectiveGains();
+    const activeKeys = this.stemMixer.getActiveTrackKeys();
 
-    for (const k of StemMixer.TRACK_KEYS) {
+    for (const k of activeKeys) {
       const st = this.stemMixer.state[k];
       const muteBtn = document.getElementById(`stem-mute-${k}`);
       const soloBtn = document.getElementById(`stem-solo-${k}`);
@@ -814,11 +904,11 @@ class App {
       const gainLbl = document.getElementById(`stem-gain-${k}`);
       const strip = document.getElementById(`stem-strip-${k}`);
 
-      if (muteBtn) muteBtn.classList.toggle('active', st.muted);
-      if (soloBtn) soloBtn.classList.toggle('active', st.solo);
-      if (fader) fader.value = String(Math.round(st.volume * 100));
-      if (gainLbl) gainLbl.textContent = `${Math.round(st.volume * 100)}%`;
-      if (strip) strip.classList.toggle('is-muted', effGains[k] === 0);
+      if (muteBtn && st) muteBtn.classList.toggle('active', st.muted);
+      if (soloBtn && st) soloBtn.classList.toggle('active', st.solo);
+      if (fader && st) fader.value = String(Math.round(st.volume * 100));
+      if (gainLbl && st) gainLbl.textContent = `${Math.round(st.volume * 100)}%`;
+      if (strip) strip.classList.toggle('is-muted', (effGains[k] || 0) === 0);
     }
 
     document.querySelectorAll('[data-stem-preset]').forEach((chip) => {
@@ -842,7 +932,8 @@ class App {
       timeEl.textContent = `${this.formatDuration(currentTime)} / ${this.formatDuration(duration)}`;
     }
 
-    for (const k of StemMixer.TRACK_KEYS) {
+    const activeKeys = this.stemMixer.getActiveTrackKeys();
+    for (const k of activeKeys) {
       const meter = document.getElementById(`stem-meter-${k}`);
       if (meter) {
         const pct = Math.min(100, Math.round((levels[k] || 0) * 100));
@@ -867,6 +958,8 @@ class App {
 
     const labelMap = {
       vocals: 'Vocals',
+      lead_vocals: 'Lead Vocals',
+      backing_vocals: 'Backing Harmonies',
       drums: 'Drums',
       bass: 'Bass',
       other: 'Melodies',
@@ -886,9 +979,12 @@ class App {
         const rawMp3 = await Mp3Encoder.encode(stemBuffer, 320);
         const taggedMp3 = await ID3Writer.embedTags(rawMp3, {
           title: `${song.title} (${suffix})`,
+          artist: song.artist || 'Suno AI Studio',
+          album: `${song.title} (Stems)`,
           genre: song.tags,
-          lyrics: type === 'vocals' ? song.prompt : '',
-          coverUrl: song.imageLarge
+          lyrics: (type === 'vocals' || type === 'lead_vocals') ? song.prompt : '',
+          coverUrl: song.imageLarge,
+          coverBytes: song.customCoverBytes || null
         });
         const filename = this.makeSafeFilename(`${song.title} (${suffix})`, 'mp3');
         this.triggerDownload(taggedMp3, filename);
@@ -941,13 +1037,273 @@ class App {
       const zipBlob = await ZipPackager.buildStemsZip(song, cached.stems, format, (pct, msg) => {
         this.setBtnLoading(btnId, true, `${pct}% ${msg.slice(0, 18)}...`);
       });
-      const filename = this.makeSafeFilename(`${song.title} - 5 Stems Kit (${format.toUpperCase()})`, 'zip');
+      const hasSplit = Boolean(cached.stems.lead_vocals && cached.stems.backing_vocals);
+      const filename = this.makeSafeFilename(
+        `${song.title} - ${hasSplit ? '6 Stems Studio Kit' : '5 Stems Kit'} (${format.toUpperCase()})`,
+        'zip'
+      );
       this.triggerDownload(zipBlob, filename);
-      this.showToast(`Downloaded 5-Stem Kit .ZIP: "${filename}"!`, 'emerald');
+      this.showToast(`Downloaded Complete Neural Stems ZIP: "${filename}"`, 'emerald');
     } catch (e) {
       this.showToast(`Stems ZIP failed: ${e.message}`, 'rose');
     } finally {
       this.setBtnLoading(btnId, false);
+    }
+  }
+
+  /* =========================================================================
+     STAGE 2 VOCAL DEMIXING (LEAD VS BACKING HARMONIES)
+     ========================================================================= */
+
+  async splitCurrentVocals() {
+    if (!this.activeStemsSong) return;
+    const currentBundle = this.stemMixer.stems;
+    if (!currentBundle || !currentBundle.vocals) {
+      this.showToast('Run HTDemucs stem separation first before splitting vocals.', 'amber');
+      return;
+    }
+
+    const btn = document.getElementById('btnSplitVocals');
+    const progCard = document.getElementById('stemsProgressCard');
+    const progBar = document.getElementById('stemsProgressBar');
+    const progText = document.getElementById('stemsStatusText');
+    const progPct = document.getElementById('stemsProgressPct');
+
+    if (btn) btn.disabled = true;
+    if (progCard) progCard.style.display = 'flex';
+
+    try {
+      const { leadVocals, backingVocals, engine } = await StemEngine.splitLeadAndBackingVocals(
+        currentBundle.vocals,
+        (pct, stage) => {
+          if (progBar) progBar.style.width = `${pct}%`;
+          if (progPct) progPct.textContent = `${pct}%`;
+          if (progText) progText.textContent = stage;
+        }
+      );
+
+      currentBundle.lead_vocals = leadVocals;
+      currentBundle.backing_vocals = backingVocals;
+
+      // Update mixer & display strips
+      this.stemMixer.loadStems(currentBundle, true);
+      this.stemMixer.setVocalSplit(true);
+      this.syncStemConsoleControls('full');
+
+      const stripVocals = document.getElementById('stem-strip-vocals');
+      const stripLead = document.getElementById('stem-strip-lead_vocals');
+      const stripBacking = document.getElementById('stem-strip-backing_vocals');
+
+      if (stripVocals) stripVocals.style.display = 'none';
+      if (stripLead) stripLead.style.display = 'flex';
+      if (stripBacking) stripBacking.style.display = 'flex';
+
+      if (btn) {
+        btn.textContent = '✓ Split (Lead & Backing)';
+        btn.classList.remove('btn-cyan');
+        btn.classList.add('btn-secondary');
+      }
+
+      const activeBadge = document.getElementById('stemActiveEngineBadge');
+      if (activeBadge) {
+        activeBadge.textContent = `6 Stems (${engine})`;
+      }
+
+      this.showToast('Separated Lead Vocals and Backing Harmonies!', 'emerald');
+    } catch (err) {
+      this.showToast(`Vocal split failed: ${err.message}`, 'rose');
+    } finally {
+      if (btn) btn.disabled = false;
+      if (progCard) progCard.style.display = 'none';
+    }
+  }
+
+  /* =========================================================================
+     METADATA & ID3 TAG EDITOR (INDIVIDUAL & BATCH)
+     ========================================================================= */
+
+  openMetaModal(uuid) {
+    const song = StorageManager.loadSongs().find((s) => s.uuid === uuid);
+    if (!song) return;
+
+    this.activeMetaSong = song;
+    this.tempCoverDataUrl = song.customCoverDataUrl || null;
+
+    document.getElementById('editMetaUuid').value = song.uuid;
+    document.getElementById('editMetaTitle').value = song.title || '';
+    document.getElementById('editMetaArtist').value = song.artist || 'Suno AI Studio';
+    document.getElementById('editMetaAlbum').value = song.album || 'NTK Hub';
+    document.getElementById('editMetaTrack').value = song.trackNumber || '';
+    document.getElementById('editMetaYear').value = song.year || String(new Date().getFullYear());
+    document.getElementById('editMetaGenre').value = song.tags || '';
+    document.getElementById('editMetaLyrics').value = song.prompt || '';
+
+    const preview = document.getElementById('editMetaCoverPreview');
+    if (preview) {
+      preview.src = song.customCoverDataUrl || song.imageLarge || 'assets/icon.svg';
+    }
+
+    const modal = document.getElementById('metaModal');
+    if (modal) modal.classList.add('open');
+  }
+
+  async handleCustomCoverUpload(event) {
+    const file = event.target && event.target.files && event.target.files[0];
+    if (!file) return;
+
+    try {
+      const reader = new FileReader();
+      const base64Url = await new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      this.tempCoverDataUrl = base64Url;
+      const preview = document.getElementById('editMetaCoverPreview');
+      if (preview) {
+        preview.src = base64Url;
+      }
+      this.showToast('Loaded custom cover artwork image.', 'emerald');
+    } catch (err) {
+      this.showToast(`Error reading image: ${err.message}`, 'rose');
+    } finally {
+      event.target.value = '';
+    }
+  }
+
+  saveMetaModal() {
+    const uuid = document.getElementById('editMetaUuid').value;
+    const song = StorageManager.loadSongs().find((s) => s.uuid === uuid);
+    if (!song) return;
+
+    song.title = document.getElementById('editMetaTitle').value.trim() || song.title;
+    song.artist = document.getElementById('editMetaArtist').value.trim() || 'Suno AI Studio';
+    song.album = document.getElementById('editMetaAlbum').value.trim() || 'NTK Hub';
+    song.trackNumber = document.getElementById('editMetaTrack').value.trim();
+    song.year = document.getElementById('editMetaYear').value.trim() || String(new Date().getFullYear());
+    song.tags = document.getElementById('editMetaGenre').value.trim();
+    song.prompt = document.getElementById('editMetaLyrics').value.trim();
+
+    if (this.tempCoverDataUrl) {
+      song.customCoverDataUrl = this.tempCoverDataUrl;
+    }
+
+    StorageManager.upsertSong(song);
+    this.renderSongs();
+
+    const modal = document.getElementById('metaModal');
+    if (modal) modal.classList.remove('open');
+    this.showToast(`Saved metadata tags for "${song.title}"!`, 'emerald');
+  }
+
+  openBatchMetaModal() {
+    const songs = StorageManager.loadSongs();
+    if (songs.length === 0) {
+      this.showToast('Your studio deck is empty. Add songs first!', 'amber');
+      return;
+    }
+
+    const first = songs[0];
+    document.getElementById('batchAlbum').value = first.album || (songs.length > 1 ? 'Suno Studio Collection' : first.title);
+    document.getElementById('batchArtist').value = first.artist || 'Suno AI Studio';
+    document.getElementById('batchYear').value = first.year || String(new Date().getFullYear());
+    document.getElementById('batchGenre').value = first.tags || '';
+
+    const modal = document.getElementById('batchMetaModal');
+    if (modal) modal.classList.add('open');
+  }
+
+  saveBatchMetaModal() {
+    const songs = StorageManager.loadSongs();
+    if (songs.length === 0) return;
+
+    const album = document.getElementById('batchAlbum').value.trim();
+    const artist = document.getElementById('batchArtist').value.trim();
+    const year = document.getElementById('batchYear').value.trim();
+    const genre = document.getElementById('batchGenre').value.trim();
+    const autoNumber = document.getElementById('batchAutoNumber').checked;
+
+    for (let i = 0; i < songs.length; i++) {
+      const s = songs[i];
+      if (album) s.album = album;
+      if (artist) s.artist = artist;
+      if (year) s.year = year;
+      if (genre) s.tags = genre;
+      if (autoNumber) {
+        s.trackNumber = `${String(i + 1).padStart(2, '0')}/${String(songs.length).padStart(2, '0')}`;
+      }
+      StorageManager.upsertSong(s);
+    }
+
+    this.renderSongs();
+    const modal = document.getElementById('batchMetaModal');
+    if (modal) modal.classList.remove('open');
+    this.showToast(`Applied custom tags across all ${songs.length} tracks!`, 'emerald');
+  }
+
+  /* =========================================================================
+     BULK DOWNLOAD ALL TRACKS (SINGLE .ZIP ARCHIVE)
+     ========================================================================= */
+
+  openBulkDownloadModal() {
+    const songs = StorageManager.loadSongs();
+    if (songs.length === 0) {
+      this.showToast('Your studio deck is empty. Add songs or a playlist link first!', 'amber');
+      return;
+    }
+    const modal = document.getElementById('bulkDownloadModal');
+    if (modal) {
+      const wrap = document.getElementById('bulkDownloadProgressWrap');
+      if (wrap) wrap.style.display = 'none';
+      const btn = document.getElementById('btnStartBulkDownload');
+      if (btn) btn.disabled = false;
+      modal.classList.add('open');
+    }
+  }
+
+  async startBulkDownload() {
+    const songs = StorageManager.loadSongs();
+    if (songs.length === 0) return;
+
+    const radio = document.querySelector('input[name="bulkFormatRadio"]:checked');
+    const format = radio ? radio.value : 'mp3';
+
+    const btn = document.getElementById('btnStartBulkDownload');
+    const wrap = document.getElementById('bulkDownloadProgressWrap');
+    const bar = document.getElementById('bulkDownloadProgressBar');
+    const statusText = document.getElementById('bulkDownloadStatusText');
+    const pctText = document.getElementById('bulkDownloadProgressPct');
+
+    if (btn) btn.disabled = true;
+    if (wrap) wrap.style.display = 'block';
+
+    try {
+      const commonAlbum = songs[0]?.album || 'Suno Studio Collection';
+      const zipBlob = await ZipPackager.buildBatchDeckZip(
+        songs,
+        (uuid, stCb) => this.getDecryptedAudio(uuid, stCb),
+        format,
+        (pct, text) => {
+          if (bar) bar.style.width = `${pct}%`;
+          if (pctText) pctText.textContent = `${pct}%`;
+          if (statusText) statusText.textContent = text;
+        },
+        { albumName: commonAlbum }
+      );
+
+      const safeAlbum = this.makeSafeFilename(commonAlbum.replace(/\s+/g, '_'), 'zip');
+      const filename = `Suno_Batch_${songs.length}_Tracks_${format.toUpperCase()}_${safeAlbum}`;
+      this.triggerDownload(zipBlob, filename);
+      this.showToast(`Downloaded Batch ZIP (${songs.length} tracks): "${filename}"!`, 'emerald');
+
+      const modal = document.getElementById('bulkDownloadModal');
+      if (modal) modal.classList.remove('open');
+    } catch (err) {
+      this.showToast(`Bulk download error: ${err.message}`, 'rose');
+      if (statusText) statusText.textContent = `Error: ${err.message}`;
+    } finally {
+      if (btn) btn.disabled = false;
     }
   }
 
@@ -1327,9 +1683,125 @@ class App {
      KARAOKE VIDEO & VISUALIZER STUDIO
      ========================================================================= */
 
+  /* =========================================================================
+     WORLD-CLASS VIDEO STUDIO & CUSTOMIZATION SUITE
+     ========================================================================= */
+
+  loadVideoStudioSettings() {
+    const defaultSettings = {
+      studioName: 'NTK Hub',
+      studioSubtitle: 'Official Visualizer',
+      watermarkPos: 'top-left',
+      customBgDataUrl: null,
+      bgDimOpacity: 0.40,
+      bgBlurPx: 20,
+      bgMotion: 'ken-burns',
+      artMode: 'card',
+      artSizeScale: 0.44,
+      artCornerRadius: 28,
+      artGlowIntensity: 0.70,
+      visualStyle: 'bars',
+      showVisualizer: true,
+      vizPosition: 'below_artwork',
+      vizWidthPercent: 0.74,
+      vizMaxHeight: 120,
+      theme: 'sunset',
+      customColors: null,
+      showParticles: true,
+      customCoverDataUrl: null,
+      lyricAnimation: 'capcut_bounce',
+      showFooter: true,
+      fontFamily: 'Inter',
+      lyricPosition: 'lower-third',
+      aspectRatio: '1:1',
+      fps: 60,
+      bitrateMbps: 12,
+      customPositions: null
+    };
+
+    try {
+      const stored = localStorage.getItem('suno_video_studio_settings');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.studioName === 'NTK Studios') {
+          parsed.studioName = 'NTK Hub';
+        }
+        return { ...defaultSettings, ...parsed };
+      }
+    } catch (e) {}
+    return defaultSettings;
+  }
+
+  saveVideoStudioSettings() {
+    if (!this.videoStudio) return;
+    try {
+      const settings = {
+        studioName: this.videoStudio.studioName,
+        studioSubtitle: this.videoStudio.studioSubtitle,
+        watermarkPos: this.videoStudio.watermarkPos,
+        customBgDataUrl: this.videoStudio.customBgDataUrl,
+        bgDimOpacity: this.videoStudio.bgDimOpacity,
+        bgBlurPx: this.videoStudio.bgBlurPx,
+        bgMotion: this.videoStudio.bgMotion,
+        artMode: this.videoStudio.artMode,
+        artSizeScale: this.videoStudio.artSizeScale,
+        artCornerRadius: this.videoStudio.artCornerRadius,
+        artGlowIntensity: this.videoStudio.artGlowIntensity,
+        visualStyle: this.videoStudio.visualStyle,
+        showVisualizer: this.videoStudio.showVisualizer !== false,
+        vizPosition: this.videoStudio.vizPosition || 'below_artwork',
+        vizWidthPercent: this.videoStudio.vizWidthPercent || 0.74,
+        vizMaxHeight: this.videoStudio.vizMaxHeight || 120,
+        theme: this.videoStudio.theme,
+        customColors: this.videoStudio.customColors,
+        showParticles: this.videoStudio.showParticles,
+        customCoverDataUrl: this.videoStudio.customCoverDataUrl,
+        lyricAnimation: this.videoStudio.lyricAnimation,
+        showFooter: this.videoStudio.showFooter,
+        fontFamily: this.videoStudio.fontFamily,
+        lyricPosition: this.videoStudio.lyricPosition,
+        aspectRatio: this.videoStudio.aspectRatio,
+        fps: this.videoStudio.fps,
+        bitrateMbps: this.videoStudio.bitrateMbps,
+        customPositions: this.videoStudio.customPositions || null
+      };
+      localStorage.setItem('suno_video_studio_settings', JSON.stringify(settings));
+    } catch (e) {}
+  }
+
   async openVideoStudio(uuid) {
-    const song = StorageManager.loadSongs().find((s) => s.uuid === uuid);
+    let song = StorageManager.loadSongs().find((s) => s.uuid === uuid);
     if (!song) return;
+
+    // Proactively enrich metadata and lyrics if missing or using placeholder title
+    if (!song.prompt || (song.title && song.title.startsWith('Suno_Song_'))) {
+      try {
+        const freshMeta = await SunoAPI.fetchMetadata(song.uuid);
+        if (freshMeta) {
+          let updated = false;
+          if (freshMeta.title && !freshMeta.title.startsWith('Suno_Song_')) {
+            song.title = freshMeta.title;
+            updated = true;
+          }
+          if (freshMeta.prompt && freshMeta.prompt.trim()) {
+            song.prompt = freshMeta.prompt.trim();
+            updated = true;
+          }
+          if (freshMeta.tags) song.tags = freshMeta.tags;
+          if (freshMeta.duration) song.duration = freshMeta.duration;
+          if (freshMeta.artist) song.artist = freshMeta.artist;
+          if (updated) {
+            const allSongs = StorageManager.loadSongs();
+            const idx = allSongs.findIndex((s) => s.uuid === song.uuid);
+            if (idx !== -1) {
+              allSongs[idx] = { ...allSongs[idx], ...song };
+              StorageManager.saveSongs(allSongs);
+            }
+            this.renderSongCards();
+          }
+        }
+      } catch (e) {}
+    }
 
     this.player.pause();
     this.stopAllModalAudio();
@@ -1342,39 +1814,430 @@ class App {
     const titleEl = document.getElementById('studioSongTitle');
     if (titleEl) titleEl.textContent = `Karaoke Video Studio: ${song.title}`;
 
-    const showLyrics = document.getElementById('chkVideoLyrics')?.checked !== false;
+    const settings = this.loadVideoStudioSettings();
     const canvas = document.getElementById('studioCanvas');
+    const showLyrics = document.getElementById('chkVideoLyrics')?.checked !== false;
 
     this.videoStudio = new VideoGenerator({
       canvas,
-      aspectRatio: '1:1',
-      visualStyle: 'bars',
-      theme: 'sunset',
+      aspectRatio: settings.aspectRatio,
+      visualStyle: settings.visualStyle,
+      showVisualizer: settings.showVisualizer !== false,
+      vizPosition: settings.vizPosition || 'below_artwork',
+      vizWidthPercent: settings.vizWidthPercent || 0.74,
+      vizMaxHeight: settings.vizMaxHeight || 120,
+      theme: settings.theme,
+      customColors: settings.customColors,
       showLyrics,
+      studioName: settings.studioName,
+      studioSubtitle: settings.studioSubtitle,
+      watermarkPos: settings.watermarkPos,
+      customBgDataUrl: settings.customBgDataUrl,
+      bgDimOpacity: settings.bgDimOpacity,
+      bgBlurPx: settings.bgBlurPx,
+      bgMotion: settings.bgMotion,
+      showParticles: settings.showParticles,
+      customCoverDataUrl: settings.customCoverDataUrl,
+      lyricAnimation: settings.lyricAnimation,
+      showFooter: settings.showFooter !== false,
+      artMode: settings.artMode,
+      artSizeScale: settings.artSizeScale,
+      artCornerRadius: settings.artCornerRadius,
+      artGlowIntensity: settings.artGlowIntensity,
+      fontFamily: settings.fontFamily,
+      lyricPosition: settings.lyricPosition,
+      fps: settings.fps,
+      bitrateMbps: settings.bitrateMbps,
+      customPositions: settings.customPositions || null,
       songMeta: song
     });
 
-    // Reset button active states
-    document.querySelectorAll('.ratio-btn').forEach((b) => b.classList.toggle('active', b.dataset.ratio === '1:1'));
-    document.querySelectorAll('.style-btn').forEach((b) => b.classList.toggle('active', b.dataset.vstyle === 'bars'));
-    document.querySelectorAll('.theme-swatch-btn').forEach((b) => b.classList.toggle('active', b.dataset.vtheme === 'sunset'));
-    const container = document.getElementById('canvasContainer');
-    if (container) container.className = 'canvas-container ratio-1-1';
+    if (canvas) {
+      this.videoStudio.setupDragInteraction(canvas, (comp, pos) => {
+        this.onVideoComponentMoved(comp, pos);
+      });
+    }
 
-    this.videoStudio.setSongMeta(song, song.duration || 180);
+    // Populate UI inputs with saved settings
+    const nameInput = document.getElementById('videoStudioName');
+    if (nameInput) nameInput.value = settings.studioName;
+
+    const subInput = document.getElementById('videoStudioSubtitle');
+    if (subInput) subInput.value = settings.studioSubtitle;
+
+    const wmSelect = document.getElementById('videoWatermarkPos');
+    if (wmSelect) wmSelect.value = settings.watermarkPos;
+
+    const chkFooter = document.getElementById('chkVideoFooter');
+    if (chkFooter) chkFooter.checked = settings.showFooter !== false;
+
+    const dimInput = document.getElementById('videoBgDim');
+    const dimVal = document.getElementById('videoBgDimVal');
+    if (dimInput) dimInput.value = Math.round(settings.bgDimOpacity * 100);
+    if (dimVal) dimVal.textContent = `${Math.round(settings.bgDimOpacity * 100)}%`;
+
+    const blurInput = document.getElementById('videoBgBlur');
+    const blurVal = document.getElementById('videoBgBlurVal');
+    if (blurInput) blurInput.value = settings.bgBlurPx;
+    if (blurVal) blurVal.textContent = `${settings.bgBlurPx}px`;
+
+    const motionSelect = document.getElementById('videoBgMotion');
+    if (motionSelect) motionSelect.value = settings.bgMotion;
+
+    const scaleInput = document.getElementById('videoArtScale');
+    const scaleVal = document.getElementById('videoArtScaleVal');
+    if (scaleInput) scaleInput.value = Math.round(settings.artSizeScale * 100);
+    if (scaleVal) scaleVal.textContent = `${Math.round(settings.artSizeScale * 100)}%`;
+
+    const cornersSelect = document.getElementById('videoArtCorners');
+    if (cornersSelect) cornersSelect.value = String(settings.artCornerRadius);
+
+    const glowInput = document.getElementById('videoArtGlow');
+    const glowVal = document.getElementById('videoArtGlowVal');
+    if (glowInput) glowInput.value = Math.round(settings.artGlowIntensity * 100);
+    if (glowVal) glowVal.textContent = `${Math.round(settings.artGlowIntensity * 100)}%`;
+
+    const fontSelect = document.getElementById('videoFontFamily');
+    if (fontSelect) fontSelect.value = settings.fontFamily;
+
+    const animSelect = document.getElementById('videoLyricAnimSelect');
+    if (animSelect) animSelect.value = settings.lyricAnimation || 'capcut_bounce';
+
+    const posSelect = document.getElementById('videoLyricPos');
+    if (posSelect) posSelect.value = settings.lyricPosition;
+
+    const fpsSelect = document.getElementById('videoFpsSelect');
+    if (fpsSelect) fpsSelect.value = String(settings.fps);
+
+    const bitSelect = document.getElementById('videoBitrateSelect');
+    if (bitSelect) bitSelect.value = String(settings.bitrateMbps);
+
+    const partChk = document.getElementById('videoShowParticles');
+    if (partChk) partChk.checked = settings.showParticles;
+
+    // Visualizer Controls Population
+    const chkViz = document.getElementById('chkVideoVisualizer');
+    if (chkViz) chkViz.checked = settings.showVisualizer !== false;
+
+    const vizPosSelect = document.getElementById('videoVizPosition');
+    if (vizPosSelect) vizPosSelect.value = settings.vizPosition || 'below_artwork';
+
+    const vizWInput = document.getElementById('videoVizWidth');
+    const vizWVal = document.getElementById('videoVizWidthVal');
+    if (vizWInput) vizWInput.value = Math.round((settings.vizWidthPercent || 0.74) * 100);
+    if (vizWVal) vizWVal.textContent = `${Math.round((settings.vizWidthPercent || 0.74) * 100)}%`;
+
+    const vizHInput = document.getElementById('videoVizHeight');
+    const vizHVal = document.getElementById('videoVizHeightVal');
+    if (vizHInput) vizHInput.value = settings.vizMaxHeight || 120;
+    if (vizHVal) vizHVal.textContent = `${settings.vizMaxHeight || 120}px`;
+
+    // Reset button active states
+    document.querySelectorAll('.ratio-btn').forEach((b) => b.classList.toggle('active', b.dataset.ratio === settings.aspectRatio));
+    document.querySelectorAll('[data-vstyle]').forEach((b) => b.classList.toggle('active', b.dataset.vstyle === settings.visualStyle));
+    document.querySelectorAll('[data-artmode]').forEach((b) => b.classList.toggle('active', b.dataset.artmode === settings.artMode));
+    document.querySelectorAll('.theme-swatch-btn').forEach((b) => b.classList.toggle('active', b.dataset.vtheme === settings.theme));
+
+    const container = document.getElementById('canvasContainer');
+    if (container) container.className = `canvas-container ratio-${settings.aspectRatio.replace(':', '-')}`;
+
+    // Timeline Scrubber
+    const scrubber = document.getElementById('videoTimelineScrubber');
+    const timeText = document.getElementById('videoTimelineTime');
+    if (scrubber) scrubber.value = 0;
+    const dur = song.duration || 180;
+    if (timeText) timeText.textContent = `0:00 / ${this.formatTime(dur)}`;
+
+    this.videoStudio.setSongMeta(song, dur);
     this.videoStudio.updateCanvasDimensions();
+
+    // Load artwork & custom background
+    const bgStatus = document.getElementById('videoBgStatusText');
+    const clearBgBtn = document.getElementById('btnClearVideoBg');
+
+    if (settings.customBgDataUrl) {
+      if (bgStatus) bgStatus.textContent = 'Custom Wallpaper Active';
+      if (clearBgBtn) clearBgBtn.style.display = 'inline-block';
+      await this.videoStudio.loadBackgroundImage(settings.customBgDataUrl);
+    } else {
+      if (bgStatus) bgStatus.textContent = 'Using Album Artwork Backdrop';
+      if (clearBgBtn) clearBgBtn.style.display = 'none';
+    }
+
+    // Custom Album Artwork / Vinyl Label
+    const artStatus = document.getElementById('videoArtStatusText');
+    const clearArtBtn = document.getElementById('btnClearVideoArt');
+    if (settings.customCoverDataUrl) {
+      if (artStatus) artStatus.textContent = 'Custom Artwork Active';
+      if (clearArtBtn) clearArtBtn.style.display = 'inline-block';
+      await this.videoStudio.loadCustomCover(settings.customCoverDataUrl);
+    } else {
+      if (artStatus) artStatus.textContent = 'Using Song Artwork';
+      if (clearArtBtn) clearArtBtn.style.display = 'none';
+      await this.videoStudio.loadCustomCover(null);
+    }
+
+    // Lyrics & Cues
+    const lyricsTextarea = document.getElementById('videoLyricsTextarea');
+    const cuesBadge = document.getElementById('videoLyricCuesCount');
+    const lyricsStatusText = document.getElementById('videoLyricsStatusText');
+    const songPrompt = (song.prompt || '').trim();
+    if (lyricsTextarea) lyricsTextarea.value = songPrompt;
+    this.videoStudio.setCustomLyrics(songPrompt, dur);
+    if (cuesBadge) cuesBadge.textContent = `${this.videoStudio.lyricCues.length} cues`;
+    if (lyricsStatusText) {
+      lyricsStatusText.textContent = this.videoStudio.lyricCues.length > 0
+        ? `Loaded ${this.videoStudio.lyricCues.length} cues from song`
+        : 'Ready (paste or import lyrics)';
+    }
+
     await this.videoStudio.loadCoverImage(song.imageLarge);
-    this.redrawStaticVideoPreview();
+
+    const resetBtn = document.getElementById('btnResetCanvasPositions');
+    if (resetBtn) {
+      const hasAny = this.videoStudio.customPositions && Object.values(this.videoStudio.customPositions).some((p) => p !== null);
+      resetBtn.style.display = hasAny ? 'inline-flex' : 'none';
+    }
+    if (this.videoStudio.customPositions && this.videoStudio.customPositions.visualizer) {
+      const vizPosSelect = document.getElementById('videoVizPosition');
+      if (vizPosSelect) vizPosSelect.value = 'custom';
+    }
+
+    this.redrawStaticVideoPreview(0);
   }
 
-  redrawStaticVideoPreview() {
+  onVideoComponentMoved(comp, pos) {
+    this.saveVideoStudioSettings();
+    const resetBtn = document.getElementById('btnResetCanvasPositions');
+    if (resetBtn) resetBtn.style.display = 'inline-flex';
+    if (comp === 'visualizer') {
+      const sel = document.getElementById('videoVizPosition');
+      if (sel) sel.value = 'custom';
+    }
+  }
+
+  resetVideoLayoutPositions(comp = null) {
     if (!this.videoStudio) return;
-    const demoSpectrum = new Uint8Array(128);
-    for (let i = 0; i < 128; i++) {
-      demoSpectrum[i] = Math.round(90 + Math.sin(i * 0.25) * 65 + Math.cos(i * 0.11) * 40);
+    this.videoStudio.resetCustomPositions(comp);
+    this.saveVideoStudioSettings();
+    const resetBtn = document.getElementById('btnResetCanvasPositions');
+    if (resetBtn) {
+      const hasAny = this.videoStudio.customPositions && Object.values(this.videoStudio.customPositions).some((p) => p !== null);
+      resetBtn.style.display = hasAny ? 'inline-flex' : 'none';
+    }
+    const sel = document.getElementById('videoVizPosition');
+    if (sel && sel.value === 'custom') {
+      sel.value = this.videoStudio.vizPosition || 'below_artwork';
+    }
+    this.redrawStaticVideoPreview();
+    this.showToast('Reset component layout positions to defaults.', 'amber');
+  }
+
+  switchVideoTab(tabName) {
+    document.querySelectorAll('.studio-tab-btn').forEach((b) => {
+      b.classList.toggle('active', b.dataset.vtab === tabName);
+    });
+    document.querySelectorAll('.studio-tab-pane').forEach((p) => {
+      p.classList.toggle('active', p.id === `vtab-${tabName}`);
+    });
+  }
+
+  getCurrentVideoTime() {
+    const scrubber = document.getElementById('videoTimelineScrubber');
+    const dur = (this.activeStudioSong && this.activeStudioSong.duration) || 180;
+    if (scrubber) {
+      return (Number(scrubber.value) / 1000) * dur;
+    }
+    return 0;
+  }
+
+  redrawStaticVideoPreview(timeSec = null) {
+    if (!this.videoStudio) return;
+    const dur = (this.activeStudioSong && this.activeStudioSong.duration) || 180;
+    const t = (timeSec !== null && timeSec !== undefined) ? timeSec : this.getCurrentVideoTime();
+    this.videoStudio.renderStaticAtTime(t, dur);
+  }
+
+  scrubVideoTimeline(val) {
+    if (!this.videoStudio) return;
+    const scrubber = document.getElementById('videoTimelineScrubber');
+    if (scrubber && String(scrubber.value) !== String(val)) {
+      scrubber.value = val;
     }
     const dur = (this.activeStudioSong && this.activeStudioSong.duration) || 180;
-    this.videoStudio.drawFrame(demoSpectrum, Math.min(12, dur * 0.12), dur);
+    const currentSec = (Number(val) / 1000) * dur;
+    const timeText = document.getElementById('videoTimelineTime');
+    if (timeText) timeText.textContent = `${this.formatTime(currentSec)} / ${this.formatTime(dur)}`;
+
+    if (this.videoStudio.isPreviewing) {
+      this.videoStudio.seekPreview(currentSec);
+    } else if (!this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview(currentSec);
+    }
+  }
+
+  snapshotVideoFrame() {
+    const canvas = document.getElementById('studioCanvas');
+    if (!canvas || !this.activeStudioSong) return;
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = `${this.makeSafeFilename(this.activeStudioSong.title, 'png')}`;
+      link.href = dataUrl;
+      link.click();
+      this.showToast('Downloaded High-Res Frame Snapshot!', 'emerald');
+    } catch (e) {
+      this.showToast(`Snapshot failed: ${e.message}`, 'rose');
+    }
+  }
+
+  updateVideoBranding() {
+    if (!this.videoStudio) return;
+    const name = document.getElementById('videoStudioName')?.value || 'NTK Hub';
+    const sub = document.getElementById('videoStudioSubtitle')?.value || 'Official Visualizer';
+    const wm = document.getElementById('videoWatermarkPos')?.value || 'top-left';
+
+    this.videoStudio.studioName = name;
+    this.videoStudio.studioSubtitle = sub;
+    this.videoStudio.watermarkPos = wm;
+
+    this.saveVideoStudioSettings();
+    if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview();
+    }
+  }
+
+  toggleVideoFooter(checked) {
+    if (!this.videoStudio) return;
+    this.videoStudio.showFooter = Boolean(checked);
+    this.saveVideoStudioSettings();
+    if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview();
+    }
+  }
+
+  async handleCustomBgUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file || !this.videoStudio) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target.result;
+      await this.videoStudio.setCustomBackground(dataUrl);
+
+      const bgStatus = document.getElementById('videoBgStatusText');
+      const clearBtn = document.getElementById('btnClearVideoBg');
+      if (bgStatus) bgStatus.textContent = `Custom Wallpaper: ${file.name}`;
+      if (clearBtn) clearBtn.style.display = 'inline-block';
+
+      this.saveVideoStudioSettings();
+      this.redrawStaticVideoPreview();
+      this.showToast('Loaded custom cinema wallpaper!', 'emerald');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async clearCustomVideoBg() {
+    if (!this.videoStudio) return;
+    await this.videoStudio.setCustomBackground(null);
+
+    const bgStatus = document.getElementById('videoBgStatusText');
+    const clearBtn = document.getElementById('btnClearVideoBg');
+    if (bgStatus) bgStatus.textContent = 'Using Album Artwork Backdrop';
+    if (clearBtn) clearBtn.style.display = 'none';
+
+    this.saveVideoStudioSettings();
+    this.redrawStaticVideoPreview();
+    this.showToast('Reset background to album artwork.', 'cyan');
+  }
+
+  updateVideoBgSettings() {
+    if (!this.videoStudio) return;
+    const dimVal = Number(document.getElementById('videoBgDim')?.value || 40);
+    const blurVal = Number(document.getElementById('videoBgBlur')?.value || 20);
+    const motion = document.getElementById('videoBgMotion')?.value || 'ken-burns';
+
+    this.videoStudio.bgDimOpacity = dimVal / 100;
+    this.videoStudio.bgBlurPx = blurVal;
+    this.videoStudio.bgMotion = motion;
+
+    const dimLabel = document.getElementById('videoBgDimVal');
+    const blurLabel = document.getElementById('videoBgBlurVal');
+    if (dimLabel) dimLabel.textContent = `${dimVal}%`;
+    if (blurLabel) blurLabel.textContent = `${blurVal}px`;
+
+    this.saveVideoStudioSettings();
+    if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview();
+    }
+  }
+
+  setVideoArtMode(mode) {
+    if (!this.videoStudio) return;
+    this.videoStudio.artMode = mode;
+    document.querySelectorAll('[data-artmode]').forEach((b) => {
+      b.classList.toggle('active', b.dataset.artmode === mode);
+    });
+    this.saveVideoStudioSettings();
+    if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview();
+    }
+  }
+
+  updateVideoArtSettings() {
+    if (!this.videoStudio) return;
+    const scaleVal = Number(document.getElementById('videoArtScale')?.value || 44);
+    const corners = document.getElementById('videoArtCorners')?.value || '28';
+    const glowVal = Number(document.getElementById('videoArtGlow')?.value || 70);
+
+    this.videoStudio.artSizeScale = scaleVal / 100;
+    this.videoStudio.artCornerRadius = isNaN(Number(corners)) ? corners : Number(corners);
+    this.videoStudio.artGlowIntensity = glowVal / 100;
+
+    const scaleLabel = document.getElementById('videoArtScaleVal');
+    const glowLabel = document.getElementById('videoArtGlowVal');
+    if (scaleLabel) scaleLabel.textContent = `${scaleVal}%`;
+    if (glowLabel) glowLabel.textContent = `${glowVal}%`;
+
+    this.saveVideoStudioSettings();
+    if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview();
+    }
+  }
+
+  async handleCustomArtUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file || !this.videoStudio) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target.result;
+      await this.videoStudio.setCustomCover(dataUrl);
+
+      const statusEl = document.getElementById('videoArtStatusText');
+      const clearBtn = document.getElementById('btnClearVideoArt');
+      if (statusEl) statusEl.textContent = `Custom Artwork: ${file.name}`;
+      if (clearBtn) clearBtn.style.display = 'inline-block';
+
+      this.saveVideoStudioSettings();
+      this.redrawStaticVideoPreview();
+      this.showToast('Loaded custom album artwork & vinyl label!', 'emerald');
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async clearCustomArt() {
+    if (!this.videoStudio) return;
+    await this.videoStudio.setCustomCover(null);
+
+    const statusEl = document.getElementById('videoArtStatusText');
+    const clearBtn = document.getElementById('btnClearVideoArt');
+    if (statusEl) statusEl.textContent = 'Using Song Artwork';
+    if (clearBtn) clearBtn.style.display = 'none';
+
+    this.saveVideoStudioSettings();
+    this.redrawStaticVideoPreview();
+    this.showToast('Reset to default song artwork.', 'cyan');
   }
 
   setVideoAspectRatio(ratio) {
@@ -1388,6 +2251,7 @@ class App {
       b.classList.toggle('active', b.dataset.ratio === ratio);
     });
     this.videoStudio.updateCanvasDimensions();
+    this.saveVideoStudioSettings();
     if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
       this.redrawStaticVideoPreview();
     }
@@ -1396,9 +2260,82 @@ class App {
   setVideoStyle(style) {
     if (!this.videoStudio) return;
     this.videoStudio.visualStyle = style;
-    document.querySelectorAll('.style-btn').forEach((b) => {
+    if (style === 'none') {
+      this.videoStudio.showVisualizer = false;
+      const chk = document.getElementById('chkVideoVisualizer');
+      if (chk) chk.checked = false;
+    } else {
+      this.videoStudio.showVisualizer = true;
+      const chk = document.getElementById('chkVideoVisualizer');
+      if (chk) chk.checked = true;
+    }
+    document.querySelectorAll('[data-vstyle]').forEach((b) => {
       b.classList.toggle('active', b.dataset.vstyle === style);
     });
+    this.saveVideoStudioSettings();
+    if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview();
+    }
+  }
+
+  toggleVideoVisualizer(checked) {
+    if (!this.videoStudio) return;
+    this.videoStudio.showVisualizer = Boolean(checked);
+    const chk = document.getElementById('chkVideoVisualizer');
+    if (chk && chk.checked !== Boolean(checked)) chk.checked = Boolean(checked);
+    if (!this.videoStudio.showVisualizer) {
+      document.querySelectorAll('[data-vstyle]').forEach((b) => {
+        b.classList.toggle('active', b.dataset.vstyle === 'none');
+      });
+    } else if (this.videoStudio.visualStyle === 'none') {
+      this.videoStudio.visualStyle = 'bars';
+      document.querySelectorAll('[data-vstyle]').forEach((b) => {
+        b.classList.toggle('active', b.dataset.vstyle === 'bars');
+      });
+    }
+    this.saveVideoStudioSettings();
+    if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview();
+    }
+  }
+
+  updateVideoVizPosition(pos) {
+    if (!this.videoStudio) return;
+    if (pos === 'custom') {
+      return;
+    }
+    if (this.videoStudio.customPositions) {
+      this.videoStudio.customPositions.visualizer = null;
+    }
+    this.videoStudio.vizPosition = pos;
+    if (pos === 'around_artwork' && this.videoStudio.visualStyle !== 'circular') {
+      this.setVideoStyle('circular');
+    }
+    this.saveVideoStudioSettings();
+    const resetBtn = document.getElementById('btnResetCanvasPositions');
+    if (resetBtn) {
+      const hasAny = this.videoStudio.customPositions && Object.values(this.videoStudio.customPositions).some((p) => p !== null);
+      resetBtn.style.display = hasAny ? 'inline-flex' : 'none';
+    }
+    if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview();
+    }
+  }
+
+  updateVideoVizDimensions() {
+    if (!this.videoStudio) return;
+    const wVal = Number(document.getElementById('videoVizWidth')?.value || 74);
+    const hVal = Number(document.getElementById('videoVizHeight')?.value || 120);
+
+    this.videoStudio.vizWidthPercent = wVal / 100;
+    this.videoStudio.vizMaxHeight = hVal;
+
+    const wLabel = document.getElementById('videoVizWidthVal');
+    const hLabel = document.getElementById('videoVizHeightVal');
+    if (wLabel) wLabel.textContent = `${wVal}%`;
+    if (hLabel) hLabel.textContent = `${hVal}px`;
+
+    this.saveVideoStudioSettings();
     if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
       this.redrawStaticVideoPreview();
     }
@@ -1407,9 +2344,41 @@ class App {
   setVideoTheme(theme) {
     if (!this.videoStudio) return;
     this.videoStudio.theme = theme;
+    this.videoStudio.customColors = null;
     document.querySelectorAll('.theme-swatch-btn').forEach((b) => {
       b.classList.toggle('active', b.dataset.vtheme === theme);
     });
+    this.saveVideoStudioSettings();
+    if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview();
+    }
+  }
+
+  updateCustomVideoColors() {
+    if (!this.videoStudio) return;
+    const primary = document.getElementById('videoCustomPrimary')?.value || '#fbbf24';
+    const secondary = document.getElementById('videoCustomSecondary')?.value || '#f43f5e';
+    this.videoStudio.customColors = { primary, secondary, glow: '245, 158, 11' };
+    this.saveVideoStudioSettings();
+    if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview();
+    }
+  }
+
+  resetCustomVideoColors() {
+    if (!this.videoStudio) return;
+    this.videoStudio.customColors = null;
+    this.saveVideoStudioSettings();
+    if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview();
+    }
+    this.showToast('Reset to theme colors.', 'cyan');
+  }
+
+  toggleVideoParticles(checked) {
+    if (!this.videoStudio) return;
+    this.videoStudio.showParticles = Boolean(checked);
+    this.saveVideoStudioSettings();
     if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
       this.redrawStaticVideoPreview();
     }
@@ -1418,14 +2387,348 @@ class App {
   toggleVideoLyrics(checked) {
     if (!this.videoStudio) return;
     this.videoStudio.showLyrics = Boolean(checked);
+    this.saveVideoStudioSettings();
     if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
       this.redrawStaticVideoPreview();
     }
   }
 
+  updateVideoFont(font) {
+    if (!this.videoStudio) return;
+    this.videoStudio.fontFamily = font;
+    this.saveVideoStudioSettings();
+    if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview();
+    }
+  }
+
+  updateVideoLyricPos(pos) {
+    if (!this.videoStudio) return;
+    this.videoStudio.lyricPosition = pos;
+    this.saveVideoStudioSettings();
+    if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview();
+    }
+  }
+
+  setVideoLyricAnimation(style) {
+    if (!this.videoStudio) return;
+    this.videoStudio.lyricAnimation = style;
+    const select = document.getElementById('videoLyricAnimSelect');
+    if (select && select.value !== style) select.value = style;
+    this.saveVideoStudioSettings();
+    if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview();
+    }
+  }
+
+  async fetchOnlineLyricsForVideo() {
+    if (!this.activeStudioSong || !this.videoStudio) return;
+    const btn = document.getElementById('btnFetchOnlineLyrics');
+    const statusText = document.getElementById('videoLyricsStatusText');
+    const oldText = btn ? btn.textContent : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Searching LRCLIB...';
+    }
+    if (statusText) statusText.textContent = 'Querying LRCLIB database...';
+
+    try {
+      const result = await LyricsUtils.searchOnlineLyrics(
+        this.activeStudioSong.title,
+        this.activeStudioSong.artist || '',
+        this.activeStudioSong.duration || 180
+      );
+
+      const lyricsToUse = result.syncedLyrics || result.plainLyrics;
+      if (!lyricsToUse) {
+        this.showToast('No online lyrics found for this track.', 'amber');
+        if (statusText) statusText.textContent = 'No online lyrics found.';
+        return;
+      }
+
+      const textarea = document.getElementById('videoLyricsTextarea');
+      if (textarea) textarea.value = lyricsToUse;
+
+      const dur = this.activeStudioSong.duration || 180;
+      this.videoStudio.setCustomLyrics(lyricsToUse, dur);
+
+      const cuesBadge = document.getElementById('videoLyricCuesCount');
+      if (cuesBadge) cuesBadge.textContent = `${this.videoStudio.lyricCues.length} cues`;
+
+      if (statusText) {
+        statusText.textContent = result.isSynced
+          ? `Loaded synced lyrics (${this.videoStudio.lyricCues.length} cues)`
+          : `Loaded plain lyrics (${this.videoStudio.lyricCues.length} cues)`;
+      }
+
+      this.redrawStaticVideoPreview();
+      this.showToast(`Loaded ${this.videoStudio.lyricCues.length} ${result.isSynced ? 'synced' : 'timed'} lyric cues!`, 'emerald');
+    } catch (err) {
+      if (statusText) statusText.textContent = `Search failed: ${err.message}`;
+      this.showToast(err.message || 'Lyrics search failed', 'rose');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = oldText || 'Search Online (LRCLIB)';
+      }
+    }
+  }
+
+  handleLyricsFileUpload(event) {
+    const file = event.target.files && event.target.files[0];
+    if (!file || !this.videoStudio) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target.result;
+      const textarea = document.getElementById('videoLyricsTextarea');
+      if (textarea) textarea.value = text;
+
+      const dur = (this.activeStudioSong && this.activeStudioSong.duration) || 180;
+      this.videoStudio.setCustomLyrics(text, dur);
+
+      const cuesBadge = document.getElementById('videoLyricCuesCount');
+      if (cuesBadge) cuesBadge.textContent = `${this.videoStudio.lyricCues.length} cues`;
+
+      const statusText = document.getElementById('videoLyricsStatusText');
+      if (statusText) statusText.textContent = `Imported from ${file.name}`;
+
+      this.redrawStaticVideoPreview();
+      this.showToast(`Imported ${this.videoStudio.lyricCues.length} cues from ${file.name}!`, 'emerald');
+    };
+    reader.readAsText(file);
+  }
+
+  async resetLyricsFromSong() {
+    if (!this.videoStudio || !this.activeStudioSong) return;
+    let raw = (this.activeStudioSong.prompt || '').trim();
+    const textarea = document.getElementById('videoLyricsTextarea');
+    const cuesBadge = document.getElementById('videoLyricCuesCount');
+    const statusText = document.getElementById('videoLyricsStatusText');
+
+    if (!raw) {
+      if (statusText) statusText.textContent = 'Fetching prompt lyrics from Suno...';
+      try {
+        const freshMeta = await SunoAPI.fetchMetadata(this.activeStudioSong.uuid);
+        if (freshMeta && freshMeta.prompt) {
+          raw = freshMeta.prompt.trim();
+          this.activeStudioSong.prompt = raw;
+          if (freshMeta.title && !freshMeta.title.startsWith('Suno_Song_')) {
+            this.activeStudioSong.title = freshMeta.title;
+          }
+          const songs = StorageManager.loadSongs();
+          const idx = songs.findIndex((s) => s.uuid === this.activeStudioSong.uuid);
+          if (idx !== -1) {
+            songs[idx] = { ...songs[idx], ...this.activeStudioSong };
+            StorageManager.saveSongs(songs);
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (textarea) textarea.value = raw;
+
+    const dur = this.activeStudioSong.duration || 180;
+    this.videoStudio.setCustomLyrics(raw, dur);
+
+    if (cuesBadge) cuesBadge.textContent = `${this.videoStudio.lyricCues.length} cues`;
+    if (statusText) {
+      statusText.textContent = this.videoStudio.lyricCues.length > 0
+        ? `Reset to Suno prompt (${this.videoStudio.lyricCues.length} cues)`
+        : 'Suno prompt has no lyrics text';
+    }
+
+    this.redrawStaticVideoPreview();
+    this.showToast(raw ? 'Reset lyrics to Suno prompt.' : 'No lyrics prompt found on Suno.', raw ? 'cyan' : 'amber');
+  }
+
+  updateVideoLyricsText() {
+    if (!this.videoStudio) return;
+    const textarea = document.getElementById('videoLyricsTextarea');
+    const text = textarea ? textarea.value : '';
+
+    const dur = (this.activeStudioSong && this.activeStudioSong.duration) || 180;
+    this.videoStudio.setCustomLyrics(text, dur);
+
+    const cuesBadge = document.getElementById('videoLyricCuesCount');
+    if (cuesBadge) cuesBadge.textContent = `${this.videoStudio.lyricCues.length} cues`;
+
+    const statusText = document.getElementById('videoLyricsStatusText');
+    if (statusText) statusText.textContent = `Edited (${this.videoStudio.lyricCues.length} cues)`;
+
+    if (!this.videoStudio.isPreviewing && !this.videoStudio.isRecording) {
+      this.redrawStaticVideoPreview();
+    }
+  }
+
+  toggleTapToSync() {
+    if (!this.videoStudio || !this.activeStudioSong) return;
+    const panel = document.getElementById('tapSyncPanel');
+    if (!panel) return;
+
+    if (this.tapSyncState && this.tapSyncState.active) {
+      this.cancelTapToSync();
+      return;
+    }
+
+    const textarea = document.getElementById('videoLyricsTextarea');
+    const rawText = textarea ? textarea.value : '';
+    // Split into clean lines, removing existing timestamps if re-syncing
+    const lines = rawText
+      .split(/\r?\n/)
+      .map((l) => l.replace(/^\[\d{1,2}:\d{2}(?:\.\d{1,3})?\]\s*/, '').trim())
+      .filter((l) => l.length > 0 && !/^\[.*?\]$/.test(l));
+
+    if (lines.length === 0) {
+      this.showToast('Please paste or reset lyrics before starting Tap-to-Sync.', 'amber');
+      return;
+    }
+
+    this.tapSyncState = {
+      active: true,
+      lines: lines,
+      stamped: [],
+      currentIndex: 0
+    };
+
+    panel.style.display = 'block';
+    this.updateTapSyncUI();
+
+    // Start audio preview if paused
+    if (!this.videoStudio.isPreviewing) {
+      this.toggleVideoPreview();
+    }
+
+    // Attach global keyboard listener for Spacebar
+    if (!this._tapSyncKeyHandler) {
+      this._tapSyncKeyHandler = (e) => {
+        if (!this.tapSyncState || !this.tapSyncState.active) return;
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        if (e.code === 'Space' || e.key === ' ') {
+          e.preventDefault();
+          this.tapNextLyricLine();
+        }
+      };
+      window.addEventListener('keydown', this._tapSyncKeyHandler);
+    }
+
+    this.showToast('Tap-to-Sync active: Listen to audio and press Spacebar at each line!', 'emerald');
+  }
+
+  updateTapSyncUI() {
+    if (!this.tapSyncState) return;
+    const idx = this.tapSyncState.currentIndex;
+    const total = this.tapSyncState.lines.length;
+    const progressEl = document.getElementById('tapSyncProgress');
+    const currLineEl = document.getElementById('tapSyncCurrentLine');
+    const nextLineEl = document.getElementById('tapSyncNextLine');
+    const btnAction = document.getElementById('btnTapSyncAction');
+
+    if (progressEl) progressEl.textContent = `Line ${Math.min(idx + 1, total)} of ${total}`;
+    if (currLineEl) {
+      currLineEl.textContent = idx < total ? this.tapSyncState.lines[idx] : '🎉 All lines stamped!';
+    }
+    if (nextLineEl) {
+      nextLineEl.textContent = idx + 1 < total ? `Next: ${this.tapSyncState.lines[idx + 1]}` : (idx < total ? 'Next: (End of song)' : '');
+    }
+    if (btnAction) {
+      btnAction.textContent = idx < total ? `👉 Tap Line ${idx + 1} (Spacebar)` : '✅ Finish & Save Cues';
+    }
+  }
+
+  tapNextLyricLine() {
+    if (!this.tapSyncState || !this.tapSyncState.active) return;
+    const idx = this.tapSyncState.currentIndex;
+    const total = this.tapSyncState.lines.length;
+
+    if (idx >= total) {
+      this.finishTapToSync();
+      return;
+    }
+
+    const currentSec = (this.videoStudio && this.videoStudio.getCurrentPreviewTime()) || this.getCurrentVideoTime() || 0;
+    const mins = Math.floor(currentSec / 60);
+    const secs = Math.floor(currentSec % 60);
+    const hundredths = Math.floor((currentSec - Math.floor(currentSec)) * 100);
+    const timestampTag = `[${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(hundredths).padStart(2, '0')}]`;
+
+    const stampedLine = `${timestampTag} ${this.tapSyncState.lines[idx]}`;
+    this.tapSyncState.stamped.push(stampedLine);
+    this.tapSyncState.currentIndex++;
+
+    if (this.tapSyncState.currentIndex >= total) {
+      this.finishTapToSync();
+    } else {
+      this.updateTapSyncUI();
+    }
+  }
+
+  finishTapToSync(partial = false) {
+    if (!this.tapSyncState) return;
+    const total = this.tapSyncState.lines.length;
+    const stampedCount = this.tapSyncState.stamped.length;
+
+    let finalText = [...this.tapSyncState.stamped];
+    if (stampedCount < total) {
+      for (let i = stampedCount; i < total; i++) {
+        finalText.push(this.tapSyncState.lines[i]);
+      }
+    }
+
+    const outputString = finalText.join('\n');
+    const textarea = document.getElementById('videoLyricsTextarea');
+    if (textarea) textarea.value = outputString;
+
+    const dur = (this.activeStudioSong && this.activeStudioSong.duration) || 180;
+    this.videoStudio.setCustomLyrics(outputString, dur);
+
+    const cuesBadge = document.getElementById('videoLyricCuesCount');
+    if (cuesBadge) cuesBadge.textContent = `${this.videoStudio.lyricCues.length} cues`;
+
+    const statusText = document.getElementById('videoLyricsStatusText');
+    if (statusText) statusText.textContent = `Synced with exact timestamps (${stampedCount} stamped lines)`;
+
+    this.cancelTapToSync(false);
+    this.showToast(`Saved ${stampedCount} exact lyric timestamps!`, 'emerald');
+    this.redrawStaticVideoPreview();
+  }
+
+  cancelTapToSync(showToastMsg = true) {
+    if (this.tapSyncState) {
+      this.tapSyncState.active = false;
+      this.tapSyncState = null;
+    }
+    const panel = document.getElementById('tapSyncPanel');
+    if (panel) panel.style.display = 'none';
+
+    if (this._tapSyncKeyHandler) {
+      window.removeEventListener('keydown', this._tapSyncKeyHandler);
+      this._tapSyncKeyHandler = null;
+    }
+
+    if (showToastMsg) {
+      this.showToast('Exited Tap-to-Sync mode.', 'slate');
+    }
+  }
+
+  setVideoFps(fps) {
+    if (!this.videoStudio) return;
+    this.videoStudio.fps = Number(fps);
+    this.saveVideoStudioSettings();
+  }
+
+  setVideoBitrate(mbps) {
+    if (!this.videoStudio) return;
+    this.videoStudio.bitrateMbps = Number(mbps);
+    this.saveVideoStudioSettings();
+  }
+
   async toggleVideoPreview() {
     if (!this.videoStudio || !this.activeStudioSong) return;
     const btn = document.getElementById('btnVideoLivePreview');
+    const scrubber = document.getElementById('videoTimelineScrubber');
+    const timeText = document.getElementById('videoTimelineTime');
 
     if (this.videoStudio.isPreviewing) {
       this.videoStudio.stop();
@@ -1437,7 +2740,24 @@ class App {
     if (btn) btn.textContent = '⏳ Loading Audio...';
     try {
       const { audioBuffer } = await this.getDecryptedAudio(this.activeStudioSong.uuid);
-      this.videoStudio.startPreview(audioBuffer, this.activeStudioSong);
+      const totalDur = audioBuffer.duration || this.activeStudioSong.duration || 180;
+      const startOffset = this.getCurrentVideoTime();
+
+      this.videoStudio.onPreviewEnded = () => {
+        if (btn) btn.textContent = '▶ Live Preview with Audio';
+        if (scrubber) scrubber.value = 0;
+        if (timeText) timeText.textContent = `0:00 / ${this.formatTime(totalDur)}`;
+      };
+
+      this.videoStudio.startPreview(audioBuffer, this.activeStudioSong, startOffset, (elapsed, dur) => {
+        if (scrubber && !this.isUserDraggingScrubber) {
+          const ratio = Math.min(1, Math.max(0, elapsed / dur));
+          scrubber.value = Math.round(ratio * 1000);
+        }
+        if (timeText) {
+          timeText.textContent = `${this.formatTime(elapsed)} / ${this.formatTime(dur)}`;
+        }
+      });
       if (btn) btn.textContent = '⏹ Stop Live Preview';
     } catch (e) {
       if (btn) btn.textContent = '▶ Live Preview with Audio';
@@ -1623,6 +2943,9 @@ class App {
 
               <div class="song-meta-tags">
                 <span class="tag-badge uuid">ID: ${this.escapeHtml(song.uuid.slice(0, 10))}</span>
+                ${song.trackNumber ? `<span class="tag-badge" style="color:#bae6fd;border-color:rgba(56,189,248,0.3)">#${this.escapeHtml(song.trackNumber)}</span>` : ''}
+                ${song.artist ? `<span class="tag-badge" style="color:#fde68a;border-color:rgba(245,158,11,0.3)">👤 ${this.escapeHtml(song.artist)}</span>` : ''}
+                ${song.album ? `<span class="tag-badge" style="color:#a7f3d0;border-color:rgba(16,185,129,0.3)">💿 ${this.escapeHtml(song.album)}</span>` : ''}
                 <span class="tag-badge model">${this.escapeHtml(song.model || 'Suno V3.5')}</span>
                 ${hasVaultMaster ? `<span class="tag-badge vault-master" title="Decrypted master audio cached in IndexedDB Offline Vault">💾 Cached Offline</span>` : ''}
                 ${hasVaultStems ? `<span class="tag-badge vault-stems" title="4 HTDemucs v4 neural stems cached & ready instantly">🎚️ 4 Stems Ready</span>` : ''}
@@ -1800,6 +3123,13 @@ class App {
                 title="Bundle M4A + Tagged 320k MP3 + Cover Art + TXT/LRC/SRT (+ Cached Stems) into one .ZIP"
               >
                 📦 Complete Pack (.ZIP)
+              </button>
+              <button
+                class="btn btn-cyan btn-sm"
+                onclick="app.openMetaModal('${song.uuid}')"
+                title="Edit Title, Artist, Album, Track Number, Year, Genre, Lyrics & Cover Art"
+              >
+                🏷️ Edit Tags
               </button>
               <button
                 class="btn btn-secondary btn-sm"
@@ -2008,6 +3338,12 @@ class App {
       this.showToast(message, 'emerald');
     } catch (e) {}
     ta.remove();
+  }
+
+  formatTime(seconds) {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   }
 }
 

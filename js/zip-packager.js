@@ -3,10 +3,10 @@
  * Packages multi-stem kits, complete song bundles, and multi-song deck batches into single .ZIP downloads.
  */
 
-import { AudioConverter } from './audio-converter.js?v=2026.2';
-import { Mp3Encoder } from './mp3-encoder.js?v=2026.2';
-import { ID3Writer } from './id3-writer.js?v=2026.2';
-import { LyricsUtils } from './lyrics-utils.js?v=2026.2';
+import { AudioConverter } from './audio-converter.js?v=2026.4';
+import { Mp3Encoder } from './mp3-encoder.js?v=2026.4';
+import { ID3Writer } from './id3-writer.js?v=2026.4';
+import { LyricsUtils } from './lyrics-utils.js?v=2026.4';
 
 export class ZipPackager {
   static ensureJSZip() {
@@ -38,13 +38,23 @@ export class ZipPackager {
     const base = ZipPackager.safeName(song.title);
     const folder = zip.folder(`${base} - Neural Stems`);
 
-    const items = [
-      { key: 'vocals', name: `01 - ${base} (Vocals)` },
-      { key: 'drums', name: `02 - ${base} (Drums)` },
-      { key: 'bass', name: `03 - ${base} (Bass)` },
-      { key: 'other', name: `04 - ${base} (Other - Melodies)` },
-      { key: 'instrumental', name: `05 - ${base} (Full Instrumental)` }
-    ];
+    const hasSplitVocals = Boolean(stems.lead_vocals && stems.backing_vocals);
+    const items = hasSplitVocals
+      ? [
+          { key: 'lead_vocals', name: `01 - ${base} (Lead Vocals)` },
+          { key: 'backing_vocals', name: `02 - ${base} (Backing Harmonies)` },
+          { key: 'drums', name: `03 - ${base} (Drums)` },
+          { key: 'bass', name: `04 - ${base} (Bass)` },
+          { key: 'other', name: `05 - ${base} (Other - Melodies)` },
+          { key: 'instrumental', name: `06 - ${base} (Full Instrumental)` }
+        ]
+      : [
+          { key: 'vocals', name: `01 - ${base} (Vocals)` },
+          { key: 'drums', name: `02 - ${base} (Drums)` },
+          { key: 'bass', name: `03 - ${base} (Bass)` },
+          { key: 'other', name: `04 - ${base} (Other - Melodies)` },
+          { key: 'instrumental', name: `05 - ${base} (Full Instrumental)` }
+        ];
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
@@ -56,10 +66,14 @@ export class ZipPackager {
         onProgress(basePct, `Encoding ${item.key} (320k MP3 + ID3)...`);
         const rawMp3 = await Mp3Encoder.encode(buf, 320);
         const tagged = await ID3Writer.embedTags(rawMp3, {
-          title: `${song.title} (${item.key.toUpperCase()})`,
+          title: `${song.title} (${item.key.replace(/_/g, ' ').toUpperCase()})`,
+          artist: song.artist || 'Suno AI Studio',
+          album: `${song.title} (Stems)`,
+          trackNumber: `${i + 1}/${items.length}`,
           genre: song.tags,
-          lyrics: item.key === 'vocals' ? song.prompt : '',
-          coverUrl: song.imageLarge
+          lyrics: (item.key === 'vocals' || item.key === 'lead_vocals') ? song.prompt : '',
+          coverUrl: song.imageLarge,
+          coverBytes: song.customCoverBytes || null
         });
         folder.file(`${item.name}.mp3`, tagged, { compression: 'STORE' });
       } else {
@@ -144,12 +158,14 @@ export class ZipPackager {
    * @param {'m4a'|'mp3'|'wav'} [format='mp3']
    * @param {Function} [onProgress] - (percent, text)
    */
-  static async buildBatchDeckZip(songs, getAudioFn, format = 'mp3', onProgress = () => {}) {
+  static async buildBatchDeckZip(songs, getAudioFn, format = 'mp3', onProgress = () => {}, options = {}) {
     const zip = ZipPackager.ensureJSZip();
     const total = songs.length;
+    const commonAlbum = options.albumName || (songs[0] && songs[0].album) || 'Suno Studio Collection';
 
     for (let i = 0; i < total; i++) {
       const song = songs[i];
+      const trackNum = song.trackNumber || `${String(i + 1).padStart(2, '0')}/${String(total).padStart(2, '0')}`;
       const base = ZipPackager.safeName(`${String(i + 1).padStart(2, '0')} - ${song.title}`);
       const songFolder = zip.folder(base);
       const startPct = Math.round((i / total) * 90);
@@ -163,9 +179,14 @@ export class ZipPackager {
         const rawMp3 = await Mp3Encoder.encode(payload.audioBuffer, 320);
         const tagged = await ID3Writer.embedTags(rawMp3, {
           title: song.title,
+          artist: song.artist || 'Suno AI Studio',
+          album: song.album || commonAlbum,
+          trackNumber: trackNum,
+          year: song.year || String(new Date().getFullYear()),
           genre: song.tags,
           lyrics: song.prompt,
-          coverUrl: song.imageLarge
+          coverUrl: song.imageLarge,
+          customCoverDataUrl: song.customCoverDataUrl || null
         });
         songFolder.file(`${ZipPackager.safeName(song.title)}.mp3`, tagged, { compression: 'STORE' });
       } else if (format === 'wav') {
@@ -175,9 +196,19 @@ export class ZipPackager {
         songFolder.file(`${ZipPackager.safeName(song.title)}.m4a`, payload.decryptedBuffer, { compression: 'STORE' });
       }
 
-      const coverData = await ID3Writer.fetchCoverBytes(song.imageLarge);
-      if (coverData) {
-        songFolder.file('Cover.jpg', coverData.bytes, { compression: 'STORE' });
+      if (song.customCoverDataUrl) {
+        try {
+          const rawB64 = song.customCoverDataUrl.split(',')[1];
+          const bin = atob(rawB64);
+          const bytes = new Uint8Array(bin.length);
+          for (let b = 0; b < bin.length; b++) bytes[b] = bin.charCodeAt(b);
+          songFolder.file('Cover.jpg', bytes, { compression: 'STORE' });
+        } catch (e) {}
+      } else {
+        const coverData = await ID3Writer.fetchCoverBytes(song.imageLarge);
+        if (coverData) {
+          songFolder.file('Cover.jpg', coverData.bytes, { compression: 'STORE' });
+        }
       }
 
       const dur = payload.audioBuffer.duration || song.duration || 180;

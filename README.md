@@ -1,4 +1,4 @@
-# Suno Downloader Pro • 2026 Studio Edition
+# NTK Hub • Suno Studio Edition
 
 You can deploy this modular Suno AI audio, 4-stem neural separator, mastering FX, and 1080p karaoke video studio directly onto **GitHub Pages**, **Firebase Hosting**, **Cloudflare Pages**, **Netlify**, or **Vercel**.
 

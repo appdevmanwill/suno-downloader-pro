@@ -5,7 +5,40 @@
 
 export class LyricsUtils {
   /**
-   * Parses raw lyrics string into structured timed cues across totalDuration
+   * Strips non-sung Suno prompt/structure tags such as [Verse 1], [Pre-Chorus], [Chorus],
+   * [Whispered], {Bridge}, or standalone unbracketed section headers, while preserving
+   * sung backing-vocal ad-libs like (He sent you my way).
+   * @param {string} line
+   * @returns {string}
+   */
+  static stripPromptTags(line) {
+    if (!line) return '';
+    let cleaned = String(line)
+      // Strip square-bracket directives [Pre-Chorus], [Verse 1: Soft], etc. (excluding LRC [mm:ss.xx])
+      .replace(/\[(?![0-9]{1,2}:[0-9]{2}(?:\.[0-9]{1,3})?\])[^\]]*\]/g, '')
+      // Strip curly-brace section directives {Chorus}, {Verse 1}, etc.
+      .replace(/\{[^\}]*\}/g, '')
+      // Strip standalone non-sung stage directions in parentheses like (Instrumental) or (Guitar Solo)
+      .replace(/^\s*\((?:instrumental(?:\s+break)?|[\w\s]*solo|interlude|break|intro|outro|fade\s+out|end|music|silence|beat\s+drop)\)\s*$/gi, '')
+      .trim();
+
+    // Strip standalone unbracketed section headers like "Verse 1:", "Pre-Chorus:", "**Chorus**"
+    if (/^(?:#+\s*|\*+\s*)?(?:verse|chorus|pre-?chorus|post-?chorus|final\s+chorus|bridge|intro|outro|hook|refrain|interlude|instrumental(?:\s+break)?)(?:\s+\d+)?\s*:?\s*(?:\*+)?$/i.test(cleaned)) {
+      return '';
+    }
+
+    // Clear leftover markdown punctuation if a line was e.g. "**[Pre-Chorus]**"
+    if (/^[#*\-\s_:]+$/.test(cleaned)) {
+      return '';
+    }
+
+    return cleaned.replace(/\s{2,}/g, ' ').trim();
+  }
+
+  /**
+   * Parses raw lyrics string into structured timed cues across totalDuration.
+   * Non-sung structure tags ([Verse 1], [Pre-Chorus], [Chorus], [Guitar Solo], etc.)
+   * are excluded from visible cues while preserving natural section/instrumental pauses.
    * @param {string} rawLyrics
    * @param {number} totalDuration - Song duration in seconds
    * @returns {Array<{ start: number, end: number, text: string, isSection: boolean }>}
@@ -23,24 +56,35 @@ export class LyricsUtils {
 
     // Check if lines already contain [mm:ss.xx] LRC timestamps
     const lrcRegex = /^\[(\d{1,2}):(\d{2}(?:\.\d{1,3})?)\]\s*(.*)$/;
-    const preTimed = [];
+    const preTimedEvents = [];
+    let lrcMatchCount = 0;
+
     for (const line of rawLines) {
       const m = line.match(lrcRegex);
       if (m) {
+        lrcMatchCount++;
         const sec = parseInt(m[1], 10) * 60 + parseFloat(m[2]);
-        const txt = m[3].trim();
-        if (txt) preTimed.push({ start: sec, text: txt, isSection: /^\[.*\]$/.test(txt) });
+        const cleanTxt = LyricsUtils.stripPromptTags(m[3]);
+        // Keep empty timestamp lines as end-of-cue markers (for solos/section breaks), exclude from final visible cues
+        preTimedEvents.push({ start: sec, text: cleanTxt });
       }
     }
 
-    if (preTimed.length >= 3) {
-      preTimed.sort((a, b) => a.start - b.start);
-      return preTimed.map((item, idx) => ({
-        start: item.start,
-        end: idx + 1 < preTimed.length ? preTimed[idx + 1].start : dur,
-        text: item.text,
-        isSection: item.isSection
-      }));
+    if (lrcMatchCount >= 3) {
+      preTimedEvents.sort((a, b) => a.start - b.start);
+      const syncedCues = [];
+      for (let i = 0; i < preTimedEvents.length; i++) {
+        const item = preTimedEvents[i];
+        if (!item.text) continue; // Marker/tag line only terminates the previous cue
+        const nextStart = i + 1 < preTimedEvents.length ? preTimedEvents[i + 1].start : dur;
+        syncedCues.push({
+          start: item.start,
+          end: Math.max(item.start + 0.25, nextStart),
+          text: item.text,
+          isSection: false
+        });
+      }
+      return syncedCues;
     }
 
     // Weight-based proportional timing across song duration (leaving subtle intro/outro margin)
@@ -48,33 +92,42 @@ export class LyricsUtils {
     const outroMargin = Math.min(4.0, dur * 0.03);
     const activeWindow = Math.max(5, dur - introOffset - outroMargin);
 
-    const parsedItems = rawLines.map(line => {
-      const isSection = /^\[.*\]$/.test(line);
-      const isInstrumental = isSection && /solo|instrumental|break|intro|outro|interlude/i.test(line);
-      // Instrumental breaks hold screen time longer; section tags alone are brief markers
-      let weight = Math.max(10, line.length);
-      if (isInstrumental) {
-        weight = 65;
-      } else if (isSection) {
-        weight = 8;
+    const timelineItems = [];
+    for (const line of rawLines) {
+      const cleanTxt = LyricsUtils.stripPromptTags(line);
+      if (!cleanTxt) {
+        // Pure tag/section header line: never render text, but reserve pause time for solos/breaks/section breaths
+        const isInstrumentalGap = /solo|instrumental|break|interlude|drop/i.test(line);
+        const isIntroOutroTag = /intro|outro|fade/i.test(line);
+        const pauseWeight = isInstrumentalGap ? 45 : (isIntroOutroTag ? 18 : 4);
+        timelineItems.push({ text: '', isPause: true, weight: pauseWeight });
+      } else {
+        const weight = Math.max(10, cleanTxt.length);
+        timelineItems.push({ text: cleanTxt, isPause: false, weight });
       }
-      return { text: line, isSection, isInstrumental, weight };
-    });
+    }
 
-    const totalWeight = parsedItems.reduce((sum, item) => sum + item.weight, 0) || 1;
+    const sungCount = timelineItems.filter(item => !item.isPause).length;
+    if (sungCount === 0) return [];
+
+    const totalWeight = timelineItems.reduce((sum, item) => sum + item.weight, 0) || 1;
     let cursor = introOffset;
+    const cues = [];
 
-    return parsedItems.map(item => {
+    for (const item of timelineItems) {
       const span = (item.weight / totalWeight) * activeWindow;
-      const cue = {
-        start: cursor,
-        end: cursor + span,
-        text: item.text,
-        isSection: item.isSection
-      };
+      if (!item.isPause) {
+        cues.push({
+          start: cursor,
+          end: cursor + span,
+          text: item.text,
+          isSection: false
+        });
+      }
       cursor += span;
-      return cue;
-    });
+    }
+
+    return cues;
   }
 
   /**
@@ -117,8 +170,8 @@ export class LyricsUtils {
     const cues = LyricsUtils.getTimedCues(song.prompt || '', dur);
     const header = [
       `[ti:${song.title || 'Suno Song'}]`,
-      `[ar:Suno AI Studio]`,
-      `[al:Suno Downloader Pro]`,
+      `[ar:${song.artist || 'Suno AI Studio'}]`,
+      `[al:${song.album || 'NTK Hub'}]`,
       `[length:${Math.floor(dur / 60)}:${String(Math.floor(dur % 60)).padStart(2, '0')}]`,
       ''
     ];
@@ -160,5 +213,43 @@ export class LyricsUtils {
       '',
       song.prompt || '(No lyrics available for this track)'
     ].join('\n');
+  }
+
+  /**
+   * Searches free online open database (LRCLIB) for synchronized [mm:ss.xx] lyrics
+   * 100% free, zero API key required, open CORS.
+   */
+  static async searchOnlineLyrics(trackName, artistName = '', duration = 0) {
+    if (!trackName || !trackName.trim()) {
+      throw new Error('Please provide a track title to search for lyrics.');
+    }
+
+    const cleanTitle = trackName.replace(/\(.*?\)|\[.*?\]/g, '').trim();
+    const query = [cleanTitle, artistName].filter(Boolean).join(' ');
+
+    const url = `https://lrclib.net/api/search?q=${encodeURIComponent(query)}`;
+    const resp = await fetch(url, { headers: { 'User-Agent': 'SunoDownloaderPro/2026.2' } });
+    if (!resp.ok) {
+      throw new Error(`Lyrics search returned HTTP ${resp.status}`);
+    }
+
+    const results = await resp.json();
+    if (!Array.isArray(results) || results.length === 0) {
+      throw new Error(`No lyrics found online for "${trackName}".`);
+    }
+
+    // Best match: prefer results with syncedLyrics
+    let best = results.find(r => r.syncedLyrics);
+    if (!best) best = results[0];
+
+    return {
+      trackName: best.trackName || best.name,
+      artistName: best.artistName,
+      albumName: best.albumName,
+      duration: best.duration,
+      syncedLyrics: best.syncedLyrics || null,
+      plainLyrics: best.plainLyrics || null,
+      isSynced: Boolean(best.syncedLyrics)
+    };
   }
 }

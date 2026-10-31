@@ -3,7 +3,7 @@
  * High-speed OfflineAudioContext mastering, trimming, fades, normalization, and creative FX presets.
  */
 
-import { AudioConverter } from './audio-converter.js?v=2026.2';
+import { AudioConverter } from './audio-converter.js?v=2026.4';
 
 export class AudioFXEngine {
   static PRESETS = [

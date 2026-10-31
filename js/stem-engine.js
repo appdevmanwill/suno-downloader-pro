@@ -6,9 +6,9 @@
  *    running htdemucs_embedded.onnx cached permanently in IndexedDB.
  */
 
-import { AudioConverter } from './audio-converter.js?v=2026.2';
-import { VaultDB } from './vault-db.js?v=2026.2';
-import { CONSTANTS, DemucsProcessor } from '../lib/demucs-web/index.js?v=2026.2';
+import { AudioConverter } from './audio-converter.js?v=2026.4';
+import { VaultDB } from './vault-db.js?v=2026.4';
+import { CONSTANTS, DemucsProcessor } from '../lib/demucs-web/index.js?v=2026.4';
 
 export class StemEngine {
   static LOCAL_BASE = 'http://127.0.0.1:8899';
@@ -81,12 +81,27 @@ export class StemEngine {
    * Decodes 4 WAV ArrayBuffers into AudioBuffers and builds a clean Instrumental sum (Drums + Bass + Other)
    */
   static async buildStemBundleFromWavs(wavBundle, engineLabel) {
-    const [vocals, drums, bass, other] = await Promise.all([
+    const promises = [
       AudioConverter.decodeAudioData(wavBundle.vocalsWav),
       AudioConverter.decodeAudioData(wavBundle.drumsWav),
       AudioConverter.decodeAudioData(wavBundle.bassWav),
       AudioConverter.decodeAudioData(wavBundle.otherWav)
-    ]);
+    ];
+
+    if (wavBundle.leadVocalsWav && wavBundle.backingVocalsWav) {
+      promises.push(
+        AudioConverter.decodeAudioData(wavBundle.leadVocalsWav),
+        AudioConverter.decodeAudioData(wavBundle.backingVocalsWav)
+      );
+    }
+
+    const decoded = await Promise.all(promises);
+    const vocals = decoded[0];
+    const drums = decoded[1];
+    const bass = decoded[2];
+    const other = decoded[3];
+    const lead_vocals = decoded[4] || null;
+    const backing_vocals = decoded[5] || null;
 
     const instrumental = AudioConverter.mixStems(
       { vocals, drums, bass, other },
@@ -97,11 +112,92 @@ export class StemEngine {
     return {
       engine: engineLabel,
       vocals,
+      lead_vocals,
+      backing_vocals,
       drums,
       bass,
       other,
       instrumental
     };
+  }
+
+  /**
+   * Separates an isolated vocal AudioBuffer into Lead Vocals and Backing Harmonies
+   * @param {AudioBuffer} vocalBuffer
+   * @param {Function} [onProgress]
+   * @returns {Promise<{ leadVocals: AudioBuffer, backingVocals: AudioBuffer, engine: string }>}
+   */
+  static async splitLeadAndBackingVocals(vocalBuffer, onProgress = () => {}) {
+    onProgress(10, 'Checking local vocal demixing helper...');
+    // Attempt 1: Local PyTorch Server
+    try {
+      const wavBytes = AudioConverter.encodeWavArrayBuffer(vocalBuffer);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 20000);
+      const res = await fetch(`${StemEngine.LOCAL_BASE}/api/stems/split-vocals`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'audio/wav' },
+        body: wavBytes,
+        signal: controller.signal
+      });
+      clearTimeout(timer);
+      if (res.ok) {
+        onProgress(60, 'Decoding separated lead and backing stems...');
+        const json = await res.json();
+        if (json.lead_wav_base64 && json.backing_wav_base64) {
+          const leadRaw = Uint8Array.from(atob(json.lead_wav_base64), (c) => c.charCodeAt(0)).buffer;
+          const backRaw = Uint8Array.from(atob(json.backing_wav_base64), (c) => c.charCodeAt(0)).buffer;
+          const [leadVocals, backingVocals] = await Promise.all([
+            AudioConverter.decodeAudioData(leadRaw),
+            AudioConverter.decodeAudioData(backRaw)
+          ]);
+          onProgress(100, 'Vocal demixing complete (PyTorch)!');
+          return { leadVocals, backingVocals, engine: 'PyTorch Neural Demix' };
+        }
+      }
+    } catch (e) {}
+
+    // Attempt 2: High-Resolution In-Browser Center-Harmonic Demixing
+    onProgress(35, 'Running in-browser Center-Harmonic demixing...');
+    const sr = vocalBuffer.sampleRate;
+    const len = vocalBuffer.length;
+    const numCh = vocalBuffer.numberOfChannels;
+    const leadBuf = AudioConverter.createBuffer(2, len, sr);
+    const backBuf = AudioConverter.createBuffer(2, len, sr);
+
+    const chL = vocalBuffer.getChannelData(0);
+    const chR = numCh > 1 ? vocalBuffer.getChannelData(1) : chL;
+
+    const leadL = leadBuf.getChannelData(0);
+    const leadR = leadBuf.getChannelData(1);
+    const backL = backBuf.getChannelData(0);
+    const backR = backBuf.getChannelData(1);
+
+    const chunkSize = 2048;
+    for (let idx = 0; idx < len; idx++) {
+      if (idx % 80000 === 0) {
+        const pct = 35 + Math.round((idx / len) * 60);
+        onProgress(pct, `Extracting lead & backing harmonics (${pct}%)...`);
+        await new Promise((r) => setTimeout(r, 0));
+      }
+
+      const sL = chL[idx];
+      const sR = chR[idx];
+      const sumMid = 0.5 * (sL + sR);
+      const sumSq = sL * sL + sR * sR + 1e-7;
+      const correlation = Math.max(0, (2 * sL * sR) / sumSq);
+      const centerFactor = Math.pow(correlation, 1.4);
+
+      const leadSample = sumMid * centerFactor;
+      leadL[idx] = leadSample;
+      leadR[idx] = leadSample;
+
+      backL[idx] = sL - leadSample;
+      backR[idx] = sR - leadSample;
+    }
+
+    onProgress(100, 'In-browser vocal demixing complete!');
+    return { leadVocals: leadBuf, backingVocals: backBuf, engine: 'Browser Center Harmonic Demix' };
   }
 
   /**

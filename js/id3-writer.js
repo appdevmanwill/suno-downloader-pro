@@ -155,19 +155,34 @@ export class ID3Writer {
 
       const titleFrame = ID3Writer.buildTextFrame('TIT2', meta.title || 'Suno Track');
       const artistFrame = ID3Writer.buildTextFrame('TPE1', meta.artist || 'Suno AI Studio');
-      const albumFrame = ID3Writer.buildTextFrame('TALB', meta.album || 'Suno Downloader Pro');
+      const albumFrame = ID3Writer.buildTextFrame('TALB', meta.album || 'NTK Hub');
+      const trackFrame = (meta.trackNumber || meta.track)
+        ? ID3Writer.buildTextFrame('TRCK', String(meta.trackNumber || meta.track))
+        : null;
       const genreFrame = ID3Writer.buildTextFrame('TCON', (meta.genre || meta.tags || 'AI Music').slice(0, 120));
       const yearFrame = ID3Writer.buildTextFrame('TYER', meta.year || String(new Date().getFullYear()));
       const lyricsFrame = ID3Writer.buildLyricsFrame(meta.lyrics || meta.prompt || '');
 
-      [titleFrame, artistFrame, albumFrame, genreFrame, yearFrame, lyricsFrame].forEach(f => {
+      [titleFrame, artistFrame, albumFrame, trackFrame, genreFrame, yearFrame, lyricsFrame].forEach(f => {
         if (f) frames.push(f);
       });
 
       let coverData = null;
-      if (meta.coverBytes) {
+      if (meta.customCoverDataUrl || meta.coverDataUrl) {
+        try {
+          const rawB64 = (meta.customCoverDataUrl || meta.coverDataUrl).split(',')[1];
+          if (rawB64) {
+            const bin = atob(rawB64);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            coverData = { bytes, mime: 'image/jpeg' };
+          }
+        } catch (e) {}
+      }
+
+      if (!coverData && meta.coverBytes) {
         coverData = { bytes: meta.coverBytes, mime: meta.coverMime || 'image/jpeg' };
-      } else if (meta.coverUrl || meta.imageLarge) {
+      } else if (!coverData && (meta.coverUrl || meta.imageLarge)) {
         coverData = await ID3Writer.fetchCoverBytes(meta.coverUrl || meta.imageLarge);
       }
 

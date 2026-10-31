@@ -3,21 +3,26 @@
  * Sample-accurate Web Audio multi-track playback with Mute, Solo, Volume Faders, and Live Meters.
  */
 
-import { AudioConverter } from './audio-converter.js?v=2026.2';
+import { AudioConverter } from './audio-converter.js?v=2026.4';
 
 export class StemMixer {
-  static TRACK_KEYS = ['vocals', 'drums', 'bass', 'other'];
+  static STANDARD_TRACKS = ['vocals', 'drums', 'bass', 'other'];
+  static SPLIT_TRACKS = ['lead_vocals', 'backing_vocals', 'drums', 'bass', 'other'];
+  static TRACK_KEYS = ['vocals', 'lead_vocals', 'backing_vocals', 'drums', 'bass', 'other'];
 
   constructor(onTick = () => {}) {
-    this.stems = null; // { vocals, drums, bass, other, instrumental }
+    this.stems = null; // { vocals, lead_vocals, backing_vocals, drums, bass, other, instrumental }
     this.duration = 0;
     this.isPlaying = false;
     this.offsetSec = 0;
     this.startCtxTime = 0;
     this.onTick = onTick;
+    this.isVocalSplit = false;
 
     this.state = {
       vocals: { volume: 1.0, muted: false, solo: false },
+      lead_vocals: { volume: 1.0, muted: false, solo: false },
+      backing_vocals: { volume: 1.0, muted: false, solo: false },
       drums: { volume: 1.0, muted: false, solo: false },
       bass: { volume: 1.0, muted: false, solo: false },
       other: { volume: 1.0, muted: false, solo: false }
@@ -29,32 +34,49 @@ export class StemMixer {
     this._rafId = null;
   }
 
+  getActiveTrackKeys() {
+    if (this.isVocalSplit && this.stems && this.stems.lead_vocals && this.stems.backing_vocals) {
+      return StemMixer.SPLIT_TRACKS;
+    }
+    return StemMixer.STANDARD_TRACKS;
+  }
+
+  setVocalSplit(active) {
+    const wasPlaying = this.isPlaying;
+    if (wasPlaying) this.pause();
+    this.isVocalSplit = Boolean(active);
+    this.syncLiveGains();
+    if (wasPlaying) this.play();
+  }
+
   /**
-   * Loads a 4-stem bundle into the console
-   * @param {Object} stemBundle - { vocals, drums, bass, other }
+   * Loads a multi-stem bundle into the console
+   * @param {Object} stemBundle - { vocals, lead_vocals, backing_vocals, drums, bass, other }
    */
   loadStems(stemBundle) {
     this.stop();
     this.stems = stemBundle;
-    const ref = stemBundle.vocals || stemBundle.drums || stemBundle.bass || stemBundle.other;
+    const ref = stemBundle.vocals || stemBundle.lead_vocals || stemBundle.drums || stemBundle.bass || stemBundle.other;
     this.duration = ref ? ref.duration : 0;
     this.offsetSec = 0;
+    this.isVocalSplit = Boolean(stemBundle.lead_vocals && stemBundle.backing_vocals);
 
-    for (const k of StemMixer.TRACK_KEYS) {
+    const allKeys = ['vocals', 'lead_vocals', 'backing_vocals', 'drums', 'bass', 'other'];
+    for (const k of allKeys) {
       this.state[k] = { volume: 1.0, muted: false, solo: false };
     }
   }
 
   /**
    * Computes effective linear gain for each stem considering Solo & Mute logic
-   * @returns {{ vocals: number, drums: number, bass: number, other: number }}
    */
   getEffectiveGains() {
-    const anySolo = StemMixer.TRACK_KEYS.some(k => this.state[k].solo);
+    const activeKeys = this.getActiveTrackKeys();
+    const anySolo = activeKeys.some((k) => this.state[k] && this.state[k].solo);
     const out = {};
 
-    for (const k of StemMixer.TRACK_KEYS) {
-      const st = this.state[k];
+    for (const k of activeKeys) {
+      const st = this.state[k] || { volume: 1.0, muted: false, solo: false };
       if (anySolo) {
         out[k] = st.solo && !st.muted ? st.volume : 0;
       } else {
@@ -70,10 +92,11 @@ export class StemMixer {
   syncLiveGains() {
     const ctx = AudioConverter.getAudioContext();
     const eff = this.getEffectiveGains();
-    for (const k of StemMixer.TRACK_KEYS) {
+    const activeKeys = this.getActiveTrackKeys();
+    for (const k of activeKeys) {
       const gainNode = this.gains[k];
       if (gainNode) {
-        gainNode.gain.setTargetAtTime(eff[k], ctx.currentTime, 0.015);
+        gainNode.gain.setTargetAtTime(eff[k] || 0, ctx.currentTime, 0.015);
       }
     }
   }
@@ -109,20 +132,36 @@ export class StemMixer {
    * @param {'full'|'acapella'|'karaoke'|'drumless'|'rhythm'} preset
    */
   applyPreset(preset) {
-    for (const k of StemMixer.TRACK_KEYS) {
+    const activeKeys = this.getActiveTrackKeys();
+    for (const k of activeKeys) {
       this.state[k].volume = 1.0;
       this.state[k].muted = false;
       this.state[k].solo = false;
     }
 
     if (preset === 'acapella') {
-      this.state.vocals.solo = true;
+      if (this.isVocalSplit) {
+        this.state.lead_vocals.solo = true;
+        this.state.backing_vocals.solo = true;
+      } else {
+        this.state.vocals.solo = true;
+      }
     } else if (preset === 'karaoke') {
-      this.state.vocals.muted = true;
+      if (this.isVocalSplit) {
+        this.state.lead_vocals.muted = true;
+        this.state.backing_vocals.muted = true;
+      } else {
+        this.state.vocals.muted = true;
+      }
     } else if (preset === 'drumless') {
       this.state.drums.muted = true;
     } else if (preset === 'rhythm') {
-      this.state.vocals.muted = true;
+      if (this.isVocalSplit) {
+        this.state.lead_vocals.muted = true;
+        this.state.backing_vocals.muted = true;
+      } else {
+        this.state.vocals.muted = true;
+      }
       this.state.other.muted = true;
     }
 
@@ -148,7 +187,8 @@ export class StemMixer {
     this.gains = {};
     this.analysers = {};
 
-    for (const k of StemMixer.TRACK_KEYS) {
+    const activeKeys = this.getActiveTrackKeys();
+    for (const k of activeKeys) {
       const buf = this.stems[k];
       if (!buf) continue;
 
@@ -255,7 +295,8 @@ export class StemMixer {
       }
 
       const levels = {};
-      for (const k of StemMixer.TRACK_KEYS) {
+      const activeKeys = this.getActiveTrackKeys();
+      for (const k of activeKeys) {
         const an = this.analysers[k];
         if (an) {
           an.getByteTimeDomainData(tempBuf);
@@ -274,7 +315,8 @@ export class StemMixer {
         currentTime: cur,
         duration: this.duration,
         isPlaying: this.isPlaying,
-        levels
+        levels,
+        isVocalSplit: this.isVocalSplit
       });
 
       this._rafId = requestAnimationFrame(step);
@@ -284,11 +326,16 @@ export class StemMixer {
   }
 
   _emitTick() {
+    const levels = {};
+    for (const k of this.getActiveTrackKeys()) {
+      levels[k] = 0;
+    }
     this.onTick({
       currentTime: this.offsetSec,
       duration: this.duration,
       isPlaying: this.isPlaying,
-      levels: { vocals: 0, drums: 0, bass: 0, other: 0 }
+      levels,
+      isVocalSplit: this.isVocalSplit
     });
   }
 }
