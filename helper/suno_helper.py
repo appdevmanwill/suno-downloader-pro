@@ -554,6 +554,12 @@ def _run_demucs_job(job_id: str, wav_bytes: bytes):
 
 
 class LocalProxyHandler(SimpleHTTPRequestHandler):
+    def handle(self):
+        try:
+            super().handle()
+        except (ConnectionResetError, BrokenPipeError, ConnectionAbortedError, TimeoutError):
+            pass
+
     def end_headers(self):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
@@ -563,12 +569,15 @@ class LocalProxyHandler(SimpleHTTPRequestHandler):
         super().end_headers()
 
     def _send_json(self, status_code: int, payload: dict):
-        resp_bytes = json.dumps(payload).encode('utf-8')
-        self.send_response(status_code)
-        self.send_header('Content-Type', 'application/json')
-        self.send_header('Content-Length', str(len(resp_bytes)))
-        self.end_headers()
-        self.wfile.write(resp_bytes)
+        try:
+            resp_bytes = json.dumps(payload).encode('utf-8')
+            self.send_response(status_code)
+            self.send_header('Content-Type', 'application/json')
+            self.send_header('Content-Length', str(len(resp_bytes)))
+            self.end_headers()
+            self.wfile.write(resp_bytes)
+        except (ConnectionResetError, BrokenPipeError, ConnectionAbortedError, TimeoutError):
+            pass
 
     def do_OPTIONS(self):
         self.send_response(200)
@@ -595,8 +604,20 @@ class LocalProxyHandler(SimpleHTTPRequestHandler):
                 self._send_json(500, {'error': str(e)})
             return
 
-        if parsed_path == '/api/stems/capabilities':
-            self._send_json(200, check_demucs_available())
+        if parsed_path in ('/api/health', '/health'):
+            self._send_json(200, {'status': 'ok', 'app': 'NTK Hub Suno Studio', 'version': '2026.4'})
+            return
+
+        if parsed_path in ('/api/capabilities', '/api/stems/capabilities'):
+            caps = check_demucs_available()
+            self._send_json(200, {
+                'active': True,
+                'status': 'ok',
+                'ytdl': True,
+                'ffmpeg': True,
+                'demucs': caps,
+                'server': 'NTK Hub Suno Studio Helper v2026.5'
+            })
             return
 
         if parsed_path.startswith('/api/stems/status/'):
@@ -705,15 +726,20 @@ def serve(port: int = 8899, directory: str = "."):
     httpd = ThreadingHTTPServer(server_address, handler)
     caps = check_demucs_available()
     print("=" * 60)
-    print(f"[*] Suno Downloader Pro Server active on http://127.0.0.1:{port}")
+    print(f"[*] NTK Hub Suno Studio Helper active on http://127.0.0.1:{port}")
     print(f"[*] Serving web app from: {os.path.abspath(directory)}")
     print(f"[*] Neural Stems (HTDemucs v4): {'READY (' + caps['device'].upper() + ')' if caps['available'] else 'UNAVAILABLE'}")
     print(f"[*] Open http://127.0.0.1:{port}/ in your web browser")
     print("=" * 60)
-    try:
-        httpd.serve_forever()
-    except KeyboardInterrupt:
-        print("\n[*] Stopped server.")
+    while True:
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print("\n[*] Stopped server.")
+            break
+        except Exception as exc:
+            print(f"[!] Server recovery after transient error: {exc}")
+            time.sleep(0.2)
 
 
 import zipfile

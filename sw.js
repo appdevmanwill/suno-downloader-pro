@@ -3,7 +3,7 @@
  * Provides offline app-shell caching while keeping streaming and API endpoints network-direct.
  */
 
-const CACHE_NAME = 'ntk-omnistream-studio-v2026-5';
+const CACHE_NAME = 'ntk-omnistream-studio-v2026-6';
 
 const APP_SHELL_ASSETS = [
   './',

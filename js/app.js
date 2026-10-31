@@ -666,7 +666,6 @@ class App {
     }
 
     onProgress('Requesting Mango DRM rights...');
-    const storedSong = StorageManager.loadSongs().find((s) => s.uuid === uuid);
     let rights = (storedSong && storedSong.rights && storedSong.rights.key && storedSong.rights.iv && storedSong.rights.glt)
       ? storedSong.rights
       : null;
@@ -3580,6 +3579,9 @@ class App {
   }
 }
 
+window.OmniAPI = OmniAPI;
+window.VaultDB = VaultDB;
+window.VideoDemuxer = VideoDemuxer;
 window.app = new App();
 window.addEventListener('DOMContentLoaded', () => {
   window.app.init();
