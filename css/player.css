@@ -1,0 +1,139 @@
+/**
+ * Suno Downloader Pro - Player Styles
+ */
+
+/* Player Wrapper */
+.song-player-container {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.player-mode-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 0.5rem;
+}
+
+.player-tab-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.player-tab-btn {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.725rem;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.player-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.player-tab-btn.active {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-subtle);
+  color: var(--accent-amber);
+}
+
+/* Custom In-Browser Decrypted Player */
+.custom-audio-player {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.player-controls-row {
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+}
+
+.btn-play-pause {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--grad-primary);
+  border: none;
+  color: #0b0d13;
+  font-size: 1.1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  flex-shrink: 0;
+}
+
+.btn-play-pause:hover {
+  transform: scale(1.06);
+  box-shadow: 0 6px 16px rgba(245, 158, 11, 0.45);
+}
+
+.waveform-scrubber {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.waveform-canvas {
+  width: 100%;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  display: block;
+}
+
+.player-time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.player-volume-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.volume-slider {
+  width: 60px;
+  accent-color: var(--accent-amber);
+  cursor: pointer;
+}
+
+/* Official Suno Iframe Container */
+.suno-iframe-wrapper {
+  width: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  background: #000;
+  box-shadow: var(--shadow-sm);
+}
+
+.suno-iframe {
+  width: 100%;
+  height: 142px;
+  border: none;
+  display: block;
+}

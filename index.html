@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#f59e0b" />
+  <title>Suno Downloader Pro • 2026 Studio Edition</title>
+  <meta name="description" content="High-fidelity Suno AI audio downloader, Meta HTDemucs v4 4-stem neural separator, waveform trimmer, mastering FX, ID3 tagger, ZIP packager, and 1080p karaoke video studio." />
+
+  <!-- PWA Manifest & Studio Vector Icons -->
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
+  <link rel="apple-touch-icon" href="assets/icon.svg" />
+
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Modular CSS System -->
+  <link rel="stylesheet" href="css/style.css?v=2026.2" />
+  <link rel="stylesheet" href="css/components.css?v=2026.2" />
+  <link rel="stylesheet" href="css/player.css?v=2026.2" />
+  <link rel="stylesheet" href="css/visualizer.css?v=2026.2" />
+
+  <!-- Bundled MP3 Encoder (lamejs) + ZIP Packager (JSZip) with CDN fallbacks -->
+  <script src="lib/lame.all.js?v=2026.2"></script>
+  <script src="lib/jszip.min.js?v=2026.2"></script>
+  <script>
+    if (typeof window.lamejs === 'undefined') {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.all.js';
+      document.head.appendChild(s);
+    }
+    if (typeof window.JSZip === 'undefined') {
+      const z = document.createElement('script');
+      z.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+      document.head.appendChild(z);
+    }
+  </script>
+
+  <!-- Main ES Module Application -->
+  <script type="module" src="js/app.js?v=2026.2"></script>
+</head>
+<body>
+
+  <!-- ===================================================================== -->
+  <!-- HEADER                                                                -->
+  <!-- ===================================================================== -->
+  <header class="app-header">
+    <div class="app-container header-inner">
+      <a href="#" class="brand">
+        <div class="brand-icon">♪</div>
+        <div class="brand-text">
+          <h1>
+            <span>Suno Downloader Pro</span>
+            <span class="badge-engine">HTDemucs v4 AI</span>
+          </h1>
+          <p>M4A • WAV • Tagged MP3 • 4-Stem AI • Trim &amp; FX • Karaoke Video</p>
+        </div>
+      </a>
+
+      <div class="header-actions">
+        <button
+          id="btnInstallPwa"
+          style="display:none"
+          onclick="app.installPwa()"
+          class="btn btn-primary btn-sm"
+          title="Install Suno Studio as a standalone desktop or mobile app"
+        >
+          <span>📲</span>
+          <span>Install App</span>
+        </button>
+
+        <button
+          id="btnVaultStatus"
+          onclick="app.handleVaultClick()"
+          class="btn btn-secondary btn-sm"
+          title="IndexedDB Offline Vault (caches master audio, separated 4-track stems & ONNX weights)"
+        >
+          <span>💾</span>
+          <span id="vaultBadgeText">Vault: 0</span>
+        </button>
+
+        <button
+          onclick="app.openHelperModal()"
+          class="btn btn-secondary btn-sm"
+          title="Python CLI & Local HTDemucs AI Server"
+        >
+          <span>🖥️</span>
+          <span>Helper CLI</span>
+        </button>
+
+        <button
+          onclick="document.getElementById('bookmarkletModal').classList.add('open')"
+          class="btn btn-secondary btn-sm"
+          title="Drag and drop bookmarklet to your browser bar"
+        >
+          <span>🪄</span>
+          <span>Bookmarklet</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- MAIN CONTENT AREA                                                     -->
+  <!-- ===================================================================== -->
+  <main class="app-container main-content">
+
+    <!-- 1-CLICK MAGIC BOOKMARKLET HERO CARD -->
+    <section class="card card-hero">
+      <div class="hero-content">
+        <div class="hero-header">
+          <div class="hero-icon">🪄</div>
+          <div class="hero-title-group">
+            <h2>
+              <span>1-Click Magic Decryptor & Neural Studio Launcher</span>
+              <span class="badge-pill badge-amber">Works Anywhere</span>
+            </h2>
+            <p>
+              Drag the button below to your browser Bookmarks Bar (<kbd style="background:rgba(0,0,0,0.5);padding:2px 6px;border-radius:4px;color:#fde68a">Ctrl+Shift+B</kbd>). When viewing any song on <strong>suno.com</strong>, click it once to decrypt master audio in-page or send it straight into the 4-Stem AI Studio!
+            </p>
+          </div>
+        </div>
+
+        <div class="grabber-box">
+          <div class="grabber-actions">
+            <a
+              id="sunoMagicBookmarklet"
+              href="#"
+              onclick="event.preventDefault(); app.showToast('Drag this button to your Bookmarks Bar (Ctrl+Shift+B)!', 'amber');"
+              class="btn btn-primary btn-bookmarklet"
+              title="Drag me up to your Bookmarks Bar!"
+            >
+              <span>🪄 Grab Song & Launch Studio (Drag to Bookmarks Bar)</span>
+            </a>
+
+            <button
+              onclick="import('./js/bookmarklet.js?v=2026.2').then(m => app.copyToClipboard(m.BookmarkletEngine.getBookmarkletUrl(), 'Copied bookmarklet URL!'))"
+              class="btn btn-secondary"
+            >
+              <span>📋 Copy Bookmarklet</span>
+            </button>
+
+            <button
+              onclick="import('./js/bookmarklet.js?v=2026.2').then(m => app.copyToClipboard(m.BookmarkletEngine.getUserscriptCode(), 'Copied Tampermonkey Userscript!'))"
+              class="btn btn-accent"
+              title="Copy Tampermonkey / Violentmonkey script"
+            >
+              <span>📜 Tampermonkey Script</span>
+            </button>
+          </div>
+
+          <div class="grabber-steps">
+            <div class="step-item">
+              <span class="step-num">1</span>
+              <span>Drag the orange button to your <strong>Bookmarks Bar</strong>.</span>
+            </div>
+            <div class="step-item">
+              <span class="step-num">2</span>
+              <span>Open your song on <strong>suno.com</strong>.</span>
+            </div>
+            <div class="step-item">
+              <span class="step-num">3</span>
+              <span>Click <strong>Grab Song</strong> to decrypt or launch 4-Stem AI!</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 1: SMART URL & LOCAL FILE IMPORT SECTION -->
+    <section class="card">
+      <div class="input-header">
+        <label for="songUrlInput" class="input-label">
+          <span>Step 1: Paste Suno song link(s), UUIDs, or import a local audio file</span>
+        </label>
+        <div id="proxyStatusPill" class="proxy-status-pill">
+          <span class="status-dot"></span>
+          <span>Checking AI server...</span>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <textarea
+          id="songUrlInput"
+          class="url-textarea"
+          rows="2"
+          placeholder="Paste one or multiple Suno URLs (https://suno.com/song/... or suno.com/s/...) or raw UUIDs..."
+        ></textarea>
+
+        <div class="input-controls">
+          <button id="btnAddSong" class="btn btn-primary btn-lg">
+            <span>Resolve</span>
+            <span>→</span>
+          </button>
+          <button id="btnClearInput" class="btn btn-ghost btn-sm">
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <div class="input-footer">
+        <div class="quick-samples">
+          <span style="font-weight:700;color:var(--text-secondary)">Studio Tools:</span>
+          <button
+            onclick="app.pasteAndResolveClipboard()"
+            class="btn btn-secondary btn-sm"
+            style="padding:0.28rem 0.68rem;font-size:0.73rem"
+            title="Read Suno links or UUIDs directly from your clipboard and load them into the deck"
+          >
+            📋 Smart Clipboard Grab
+          </button>
+
+          <input
+            type="file"
+            id="localAudioFileInput"
+            accept=".m4a,.mp3,.wav,.flac,.ogg,audio/*"
+            multiple
+            style="display:none"
+            onchange="app.handleLocalFileSelect(event)"
+          />
+          <button
+            onclick="document.getElementById('localAudioFileInput').click()"
+            class="btn btn-cyan btn-sm"
+            style="padding:0.28rem 0.68rem;font-size:0.73rem"
+            title="Import any M4A, MP3, WAV, or FLAC file from your device for HTDemucs v4 4-Stem AI separation, Trimming, FX, or Video rendering"
+          >
+            📂 Import Local Audio
+          </button>
+
+          <input
+            type="file"
+            id="deckJsonFileInput"
+            accept=".json,application/json"
+            style="display:none"
+            onchange="app.handleImportDeckJson(event)"
+          />
+          <button
+            onclick="document.getElementById('deckJsonFileInput').click()"
+            class="btn btn-secondary btn-sm"
+            style="padding:0.28rem 0.68rem;font-size:0.73rem"
+            title="Import a saved Studio Deck JSON session"
+          >
+            📥 Import Session
+          </button>
+
+          <button
+            onclick="app.exportDeckJson()"
+            class="btn btn-secondary btn-sm"
+            style="padding:0.28rem 0.68rem;font-size:0.73rem"
+            title="Export your current Studio Deck metadata as a portable JSON session"
+          >
+            📤 Export Session
+          </button>
+        </div>
+        <div>
+          <span>💡 Multi-URL batch extraction • Drag &amp; drop audio anywhere</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2: ACTIVE SONGS DECK -->
+    <section>
+      <div class="section-header" style="flex-wrap:wrap">
+        <div class="section-title">
+          <span>Step 2: Listen, Separate Stems, Master & Export</span>
+          <span id="songCountBadge" class="badge-pill badge-amber">0</span>
+        </div>
+
+        <div class="deck-actions-group">
+          <button
+            id="btnBatchZipMp3"
+            onclick="app.downloadBatchDeckZip('mp3')"
+            class="btn btn-accent btn-sm"
+            title="Download every song in your deck as Tagged 320k MP3s + Cover Art + Lyrics inside a single .ZIP"
+          >
+            📦 Batch Deck .ZIP (MP3 + ID3)
+          </button>
+          <button
+            id="btnBatchZipM4a"
+            onclick="app.downloadBatchDeckZip('m4a')"
+            class="btn btn-secondary btn-sm"
+            title="Download every song in your deck as original M4A masters + Cover Art + Lyrics inside a single .ZIP"
+          >
+            📦 Batch .ZIP (M4A)
+          </button>
+          <button id="btnClearAll" class="btn btn-ghost btn-sm" style="color:var(--text-muted)">
+            Clear Deck
+          </button>
+        </div>
+      </div>
+
+      <!-- Container dynamically populated by app.js -->
+      <div id="songsContainer" class="songs-grid"></div>
+    </section>
+
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- 4-STEM NEURAL AI CONSOLE MODAL (META HTDEMUCS v4)                     -->
+  <!-- ===================================================================== -->
+  <div id="stemsModal" class="modal-overlay">
+    <div class="modal-content stems-modal-content">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🎛️</span>
+          <span id="stemsModalTitle">4-Stem Neural AI Console</span>
+        </div>
+        <button data-close-modal class="btn btn-ghost btn-icon">✕</button>
+      </div>
+
+      <p style="font-size:0.83rem;color:var(--text-secondary);line-height:1.45">
+        True neural source separation powered by <strong>Meta HTDemucs v4</strong>. Isolates <strong>Vocals</strong>, <strong>Drums</strong>, <strong>Bass</strong>, and <strong>Other Melodies</strong> with zero fake Mid/Side vocal bleed, and caches separated stems in your Offline Vault.
+      </p>
+
+      <!-- Hybrid Engine Toolbar -->
+      <div class="engine-toolbar">
+        <div style="display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap">
+          <label for="stemEngineMode" style="font-size:0.76rem;font-weight:700;color:var(--text-secondary)">AI Engine:</label>
+          <select id="stemEngineMode" class="studio-select">
+            <option value="auto">⚡ Auto Hybrid (Local PyTorch → In-Browser WebGPU/WASM)</option>
+            <option value="local">🖥️ Local PyTorch HTDemucs v4 (Port 8899 Helper)</option>
+            <option value="browser">🌐 In-Browser ONNX WebGPU / WASM (100% Static Host)</option>
+          </select>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:0.5rem">
+          <span id="stemActiveEngineBadge" class="badge-pill badge-emerald">HTDemucs v4</span>
+          <button
+            id="btnReseparateStems"
+            onclick="app.reseparateActiveStems()"
+            class="btn btn-secondary btn-sm"
+            title="Run fresh neural stem separation using the selected engine"
+          >
+            ↻ Re-run AI
+          </button>
+        </div>
+      </div>
+
+      <!-- Neural Progress Card -->
+      <div id="stemsProgressCard" class="stem-progress-card">
+        <div class="progress-bar-track">
+          <div id="stemsProgressBar" class="progress-bar-fill" style="width:0%"></div>
+        </div>
+        <div class="progress-status-text">
+          <span id="stemsStatusText">Initializing HTDemucs v4 neural network...</span>
+          <strong id="stemsProgressPct">0%</strong>
+        </div>
+      </div>
+
+      <!-- 4-Track Interactive Console Mixer -->
+      <div id="stemsConsoleWrap" class="stem-console-wrap" style="display:none">
+        <!-- Master Transport & Presets -->
+        <div class="console-transport">
+          <div class="transport-main-row">
+            <button
+              id="stemMixPlayBtn"
+              onclick="app.toggleStemMixerPlay()"
+              class="btn btn-primary btn-sm"
+              style="min-width:96px"
+            >
+              ▶ Play Mix
+            </button>
+            <button
+              onclick="app.stopStemMixer()"
+              class="btn btn-secondary btn-sm"
+              title="Stop & return to 0:00"
+            >
+              ⏹
+            </button>
+            <input
+              type="range"
+              id="stemMixScrubber"
+              class="transport-scrubber"
+              min="0"
+              max="1000"
+              value="0"
+              oninput="app.seekStemMixer(this.value)"
+            />
+            <span id="stemMixTimeText" class="transport-time">0:00 / 0:00</span>
+          </div>
+
+          <div class="preset-chips-row">
+            <span style="font-size:0.72rem;font-weight:700;color:var(--text-muted);margin-right:0.2rem">Quick Mix:</span>
+            <button class="preset-chip active" data-stem-preset="full" onclick="app.applyStemPreset('full')">🎚️ Full Mix</button>
+            <button class="preset-chip" data-stem-preset="acapella" onclick="app.applyStemPreset('acapella')">🎤 Acapella (Voice Only)</button>
+            <button class="preset-chip" data-stem-preset="karaoke" onclick="app.applyStemPreset('karaoke')">🎸 Karaoke (No Voice)</button>
+            <button class="preset-chip" data-stem-preset="drumless" onclick="app.applyStemPreset('drumless')">🥁 Drumless</button>
+            <button class="preset-chip" data-stem-preset="rhythm" onclick="app.applyStemPreset('rhythm')">🔊 Rhythm (Drums+Bass)</button>
+          </div>
+        </div>
+
+        <!-- 4 Channel Strips -->
+        <div class="stem-tracks-list">
+          <!-- Strip 1: Vocals -->
+          <div class="stem-strip" id="stem-strip-vocals">
+            <div class="stem-track-label">
+              <span class="stem-dot" style="background:#22d3ee;box-shadow:0 0 8px #22d3ee"></span>
+              <span>🎤 Vocals</span>
+            </div>
+            <div class="stem-ms-group">
+              <button id="stem-mute-vocals" class="btn-ms mute-btn" onclick="app.toggleStemMute('vocals')" title="Mute Vocals">M</button>
+              <button id="stem-solo-vocals" class="btn-ms solo-btn" onclick="app.toggleStemSolo('vocals')" title="Solo Vocals">S</button>
+            </div>
+            <div class="stem-fader-col">
+              <div class="stem-fader-row">
+                <input type="range" id="stem-fader-vocals" class="stem-fader" min="0" max="150" value="100" oninput="app.setStemVolume('vocals', this.value)" />
+                <span id="stem-gain-vocals" class="stem-gain-val">100%</span>
+              </div>
+              <div class="stem-meter-track"><div id="stem-meter-vocals" class="stem-meter-fill"></div></div>
+            </div>
+            <div class="stem-dl-pair">
+              <button class="btn btn-cyan btn-sm" onclick="app.downloadStemTrack('vocals', 'wav')">WAV</button>
+              <button class="btn btn-secondary btn-sm" onclick="app.downloadStemTrack('vocals', 'mp3')">MP3</button>
+            </div>
+          </div>
+
+          <!-- Strip 2: Drums -->
+          <div class="stem-strip" id="stem-strip-drums">
+            <div class="stem-track-label">
+              <span class="stem-dot" style="background:#f59e0b;box-shadow:0 0 8px #f59e0b"></span>
+              <span>🥁 Drums</span>
+            </div>
+            <div class="stem-ms-group">
+              <button id="stem-mute-drums" class="btn-ms mute-btn" onclick="app.toggleStemMute('drums')" title="Mute Drums">M</button>
+              <button id="stem-solo-drums" class="btn-ms solo-btn" onclick="app.toggleStemSolo('drums')" title="Solo Drums">S</button>
+            </div>
+            <div class="stem-fader-col">
+              <div class="stem-fader-row">
+                <input type="range" id="stem-fader-drums" class="stem-fader" min="0" max="150" value="100" oninput="app.setStemVolume('drums', this.value)" />
+                <span id="stem-gain-drums" class="stem-gain-val">100%</span>
+              </div>
+              <div class="stem-meter-track"><div id="stem-meter-drums" class="stem-meter-fill"></div></div>
+            </div>
+            <div class="stem-dl-pair">
+              <button class="btn btn-secondary btn-sm" onclick="app.downloadStemTrack('drums', 'wav')">WAV</button>
+              <button class="btn btn-secondary btn-sm" onclick="app.downloadStemTrack('drums', 'mp3')">MP3</button>
+            </div>
+          </div>
+
+          <!-- Strip 3: Bass -->
+          <div class="stem-strip" id="stem-strip-bass">
+            <div class="stem-track-label">
+              <span class="stem-dot" style="background:#10b981;box-shadow:0 0 8px #10b981"></span>
+              <span>🎸 Bass</span>
+            </div>
+            <div class="stem-ms-group">
+              <button id="stem-mute-bass" class="btn-ms mute-btn" onclick="app.toggleStemMute('bass')" title="Mute Bass">M</button>
+              <button id="stem-solo-bass" class="btn-ms solo-btn" onclick="app.toggleStemSolo('bass')" title="Solo Bass">S</button>
+            </div>
+            <div class="stem-fader-col">
+              <div class="stem-fader-row">
+                <input type="range" id="stem-fader-bass" class="stem-fader" min="0" max="150" value="100" oninput="app.setStemVolume('bass', this.value)" />
+                <span id="stem-gain-bass" class="stem-gain-val">100%</span>
+              </div>
+              <div class="stem-meter-track"><div id="stem-meter-bass" class="stem-meter-fill"></div></div>
+            </div>
+            <div class="stem-dl-pair">
+              <button class="btn btn-secondary btn-sm" onclick="app.downloadStemTrack('bass', 'wav')">WAV</button>
+              <button class="btn btn-secondary btn-sm" onclick="app.downloadStemTrack('bass', 'mp3')">MP3</button>
+            </div>
+          </div>
+
+          <!-- Strip 4: Other / Melodies -->
+          <div class="stem-strip" id="stem-strip-other">
+            <div class="stem-track-label">
+              <span class="stem-dot" style="background:#a855f7;box-shadow:0 0 8px #a855f7"></span>
+              <span>🎹 Melodies</span>
+            </div>
+            <div class="stem-ms-group">
+              <button id="stem-mute-other" class="btn-ms mute-btn" onclick="app.toggleStemMute('other')" title="Mute Melodies / Instruments">M</button>
+              <button id="stem-solo-other" class="btn-ms solo-btn" onclick="app.toggleStemSolo('other')" title="Solo Melodies / Instruments">S</button>
+            </div>
+            <div class="stem-fader-col">
+              <div class="stem-fader-row">
+                <input type="range" id="stem-fader-other" class="stem-fader" min="0" max="150" value="100" oninput="app.setStemVolume('other', this.value)" />
+                <span id="stem-gain-other" class="stem-gain-val">100%</span>
+              </div>
+              <div class="stem-meter-track"><div id="stem-meter-other" class="stem-meter-fill"></div></div>
+            </div>
+            <div class="stem-dl-pair">
+              <button class="btn btn-secondary btn-sm" onclick="app.downloadStemTrack('other', 'wav')">WAV</button>
+              <button class="btn btn-secondary btn-sm" onclick="app.downloadStemTrack('other', 'mp3')">MP3</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Master Stem Exports -->
+        <div class="stem-export-grid">
+          <button class="btn btn-purple" onclick="app.downloadStemTrack('instrumental', 'wav')">
+            🎸 Full Instrumental (WAV)
+          </button>
+          <button class="btn btn-purple" onclick="app.downloadStemTrack('instrumental', 'mp3')">
+            🎸 Full Instrumental (MP3 + ID3)
+          </button>
+          <button class="btn btn-accent" onclick="app.exportCustomStemMix('wav')">
+            🎛️ Custom Fader Mix (WAV)
+          </button>
+          <button class="btn btn-accent" onclick="app.exportCustomStemMix('mp3')">
+            🎛️ Custom Fader Mix (MP3 + ID3)
+          </button>
+          <button id="btnStemsZipWav" class="btn btn-primary" onclick="app.downloadAllStemsZip('wav')">
+            📦 All 5 Stems Kit (.ZIP WAV)
+          </button>
+          <button id="btnStemsZipMp3" class="btn btn-secondary" onclick="app.downloadAllStemsZip('mp3')">
+            📦 All 5 Stems Kit (.ZIP MP3)
+          </button>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end">
+        <button data-close-modal class="btn btn-secondary btn-sm">Close Console</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- WAVEFORM AUDIO TRIMMER & MASTERING FX STUDIO MODAL                    -->
+  <!-- ===================================================================== -->
+  <div id="trimFxModal" class="modal-overlay">
+    <div class="modal-content trim-modal-content">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>✂️</span>
+          <span id="trimModalTitle">Waveform Trimmer & Mastering FX Studio</span>
+        </div>
+        <button data-close-modal class="btn btn-ghost btn-icon">✕</button>
+      </div>
+
+      <div id="trimStatusBanner" class="code-box" style="display:none">
+        <span>Loading waveform...</span>
+      </div>
+
+      <!-- Waveform Canvas & Trim Handles -->
+      <div class="trim-wave-box">
+        <canvas id="trimWaveCanvas" width="700" height="108"></canvas>
+        <div class="trim-readout-bar">
+          <span>IN: <strong id="trimInLabel" style="color:#34d399">0:00.0</strong></span>
+          <span>OUT: <strong id="trimOutLabel" style="color:#fbbf24">0:00.0</strong></span>
+          <span>Duration: <strong id="trimLenLabel" style="color:#67e8f9">0:00.0</strong></span>
+          <div style="display:flex;gap:0.35rem">
+            <button class="btn btn-secondary btn-sm" style="padding:0.2rem 0.5rem;font-size:0.7rem" onclick="app.setQuickTrim('full')">Full</button>
+            <button class="btn btn-secondary btn-sm" style="padding:0.2rem 0.5rem;font-size:0.7rem" onclick="app.setQuickTrim('30s')">30s Clip</button>
+            <button class="btn btn-secondary btn-sm" style="padding:0.2rem 0.5rem;font-size:0.7rem" onclick="app.setQuickTrim('15s')">15s Hook</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Precision Trim & Fade Controls -->
+      <div class="trim-sliders-grid">
+        <div class="trim-field">
+          <label><span>Start Point</span><span id="trimStartVal">0.0s</span></label>
+          <input type="range" id="trimStartRange" min="0" max="100" step="0.1" value="0" oninput="app.onTrimSliderChange('start', this.value)" />
+        </div>
+        <div class="trim-field">
+          <label><span>End Point</span><span id="trimEndVal">0.0s</span></label>
+          <input type="range" id="trimEndRange" min="0" max="100" step="0.1" value="100" oninput="app.onTrimSliderChange('end', this.value)" />
+        </div>
+        <div class="trim-field">
+          <label><span>Fade In</span><span id="trimFadeInVal">0.0s</span></label>
+          <input type="range" id="trimFadeInRange" min="0" max="8" step="0.5" value="0" oninput="app.onTrimFadeChange()" />
+        </div>
+        <div class="trim-field">
+          <label><span>Fade Out</span><span id="trimFadeOutVal">0.0s</span></label>
+          <input type="range" id="trimFadeOutRange" min="0" max="8" step="0.5" value="0" oninput="app.onTrimFadeChange()" />
+        </div>
+      </div>
+
+      <!-- Peak Normalizer Toggle -->
+      <label class="karaoke-toggle-row">
+        <span>🔊 Peak Normalize Output to -0.5 dBFS (Studio Loudness Safe)</span>
+        <input type="checkbox" id="trimNormalizeChk" checked />
+      </label>
+
+      <!-- 6 Mastering & Creative FX Presets -->
+      <div class="control-group">
+        <span class="control-label">Mastering & Creative FX Chain</span>
+        <div id="fxPresetsGrid" class="fx-presets-grid">
+          <button class="fx-preset-card active" data-fx="clean" onclick="app.selectFxPreset('clean')">
+            <span class="fx-preset-title">✨ Original Clean</span>
+            <span class="fx-preset-desc">Bit-clean trim & fades</span>
+          </button>
+          <button class="fx-preset-card" data-fx="warm_master" onclick="app.selectFxPreset('warm_master')">
+            <span class="fx-preset-title">💎 Studio Master</span>
+            <span class="fx-preset-desc">Warm EQ + Glue Compression</span>
+          </button>
+          <button class="fx-preset-card" data-fx="slowed_reverb" onclick="app.selectFxPreset('slowed_reverb')">
+            <span class="fx-preset-title">🌊 Slowed + Reverb</span>
+            <span class="fx-preset-desc">0.86x Tape Pitch + Lush Hall</span>
+          </button>
+          <button class="fx-preset-card" data-fx="nightcore" onclick="app.selectFxPreset('nightcore')">
+            <span class="fx-preset-title">⚡ Nightcore</span>
+            <span class="fx-preset-desc">1.20x Pitch/Tempo + Air Boost</span>
+          </button>
+          <button class="fx-preset-card" data-fx="bass_boost" onclick="app.selectFxPreset('bass_boost')">
+            <span class="fx-preset-title">🔊 808 Bass Boost</span>
+            <span class="fx-preset-desc">+6.5 dB Sub Punch + Limiter</span>
+          </button>
+          <button class="fx-preset-card" data-fx="lofi_vinyl" onclick="app.selectFxPreset('lofi_vinyl')">
+            <span class="fx-preset-title">📻 Lo-Fi Radio</span>
+            <span class="fx-preset-desc">Warm 3.9 kHz Filter + Tape Drive</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Preview & Export Buttons -->
+      <div style="display:flex;flex-wrap:wrap;gap:0.65rem;justify-content:space-between;align-items:center">
+        <button id="btnPreviewFx" class="btn btn-cyan" onclick="app.toggleFxPreview()">
+          ▶ Audition Processed Mix
+        </button>
+
+        <div style="display:flex;flex-wrap:wrap;gap:0.6rem">
+          <button id="btnExportFxWav" class="btn btn-accent" onclick="app.exportProcessedFx('wav')">
+            ⬇ Mastered WAV
+          </button>
+          <button id="btnExportFxMp3" class="btn btn-primary" onclick="app.exportProcessedFx('mp3')">
+            ⬇ Mastered MP3 (320k + ID3)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- KARAOKE VIDEO & VISUALIZER STUDIO MODAL                               -->
+  <!-- ===================================================================== -->
+  <div id="videoStudioModal" class="modal-overlay">
+    <div class="modal-content studio-modal-content">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🎬</span>
+          <span id="studioSongTitle">Karaoke Video Studio</span>
+        </div>
+        <button data-close-modal class="btn btn-ghost btn-icon">✕</button>
+      </div>
+
+      <div class="studio-grid">
+        <!-- Visual Preview Canvas -->
+        <div class="studio-preview-pane">
+          <div id="canvasContainer" class="canvas-container ratio-1-1">
+            <canvas id="studioCanvas" width="1080" height="1080"></canvas>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem">
+            <button id="btnVideoLivePreview" class="btn btn-secondary btn-sm" onclick="app.toggleVideoPreview()">
+              ▶ Live Preview with Audio
+            </button>
+            <span style="font-size:0.72rem;color:var(--text-muted)">1080p Full HD Canvas</span>
+          </div>
+        </div>
+
+        <!-- Controls & Export Options -->
+        <div class="studio-controls-pane">
+          <div class="control-group">
+            <span class="control-label">Aspect Ratio (Format)</span>
+            <div class="aspect-ratio-selector">
+              <button
+                class="ratio-btn active"
+                data-ratio="1:1"
+                onclick="app.setVideoAspectRatio('1:1')"
+              >
+                Square 1:1<br /><span style="font-size:0.65rem;color:var(--text-muted)">Instagram/Post</span>
+              </button>
+              <button
+                class="ratio-btn"
+                data-ratio="9:16"
+                onclick="app.setVideoAspectRatio('9:16')"
+              >
+                Vertical 9:16<br /><span style="font-size:0.65rem;color:var(--text-muted)">TikTok/Reels</span>
+              </button>
+              <button
+                class="ratio-btn"
+                data-ratio="16:9"
+                onclick="app.setVideoAspectRatio('16:9')"
+              >
+                Landscape 16:9<br /><span style="font-size:0.65rem;color:var(--text-muted)">YouTube HD</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <span class="control-label">Visualizer Engine</span>
+            <div class="visualizer-style-selector">
+              <button class="style-btn active" data-vstyle="bars" onclick="app.setVideoStyle('bars')">📊 Bars</button>
+              <button class="style-btn" data-vstyle="wave" onclick="app.setVideoStyle('wave')">〰️ Neon Wave</button>
+              <button class="style-btn" data-vstyle="circular" onclick="app.setVideoStyle('circular')">⭕ Radial Ring</button>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <span class="control-label">Color Theme</span>
+            <div class="theme-swatches-row">
+              <button class="theme-swatch-btn active" data-vtheme="sunset" onclick="app.setVideoTheme('sunset')">
+                <span class="swatch-dot" style="background:linear-gradient(135deg,#fbbf24,#f43f5e)"></span>
+                <span>Sunset</span>
+              </button>
+              <button class="theme-swatch-btn" data-vtheme="cyber" onclick="app.setVideoTheme('cyber')">
+                <span class="swatch-dot" style="background:linear-gradient(135deg,#22d3ee,#a855f7)"></span>
+                <span>Cyber</span>
+              </button>
+              <button class="theme-swatch-btn" data-vtheme="emerald" onclick="app.setVideoTheme('emerald')">
+                <span class="swatch-dot" style="background:linear-gradient(135deg,#34d399,#06b6d4)"></span>
+                <span>Emerald</span>
+              </button>
+              <button class="theme-swatch-btn" data-vtheme="mono" onclick="app.setVideoTheme('mono')">
+                <span class="swatch-dot" style="background:linear-gradient(135deg,#f8fafc,#64748b)"></span>
+                <span>Mono</span>
+              </button>
+            </div>
+          </div>
+
+          <label class="karaoke-toggle-row">
+            <span>🎤 Burn-In Synchronized Karaoke Lyrics</span>
+            <input type="checkbox" id="chkVideoLyrics" checked onchange="app.toggleVideoLyrics(this.checked)" />
+          </label>
+
+          <div id="studioProgressBox" class="studio-progress-box" style="display:none">
+            <div class="progress-bar-track">
+              <div id="studioProgressBar" class="progress-bar-fill"></div>
+            </div>
+            <div id="studioStatusText" class="progress-status-text">
+              <span>Rendering video...</span>
+            </div>
+          </div>
+
+          <button
+            id="btnStartVideoRender"
+            class="btn btn-primary btn-lg"
+            onclick="app.renderAndExportVideo()"
+          >
+            <span>🎬 Render & Export 1080p Video</span>
+          </button>
+
+          <p style="font-size:0.73rem;color:var(--text-muted);line-height:1.4">
+            Renders a 1080p music video with cover art glow, live audio spectrum, synchronized karaoke lyrics captions, and master audio.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- HELPER CLI / LOCAL SERVER MODAL                                       -->
+  <!-- ===================================================================== -->
+  <div id="helperModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🖥️</span>
+          <span>Python Helper & Local HTDemucs v4 Server</span>
+        </div>
+        <button data-close-modal class="btn btn-ghost btn-icon">✕</button>
+      </div>
+
+      <p style="font-size:0.85rem;color:var(--text-secondary);line-height:1.5">
+        Running the local helper unlocks instant 1-click Suno decryption (bypassing browser CORS restrictions) AND native PyTorch <strong>Meta HTDemucs v4</strong> multi-core stem separation on port <code>8899</code>:
+      </p>
+
+      <div style="display:flex;flex-direction:column;gap:0.75rem;">
+        <div>
+          <span style="font-size:0.75rem;font-weight:700;color:var(--accent-amber)">1. Start local Studio + HTDemucs AI server:</span>
+          <div class="code-box">
+            <code>python helper/suno_helper.py --serve --port 8899</code>
+            <button
+              class="btn btn-secondary btn-sm"
+              onclick="app.copyToClipboard('python helper/suno_helper.py --serve --port 8899')"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <span style="font-size:0.75rem;font-weight:700;color:#6ee7b7">2. Or download directly via CLI terminal:</span>
+          <div class="code-box">
+            <code id="helperCliCmd">python helper/suno_helper.py https://suno.com/song/&lt;SONG_ID&gt;</code>
+            <button
+              class="btn btn-secondary btn-sm"
+              onclick="app.copyToClipboard(document.getElementById('helperCliCmd').textContent)"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end">
+        <button data-close-modal class="btn btn-secondary btn-sm">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- BOOKMARKLET INSTRUCTIONS MODAL                                        -->
+  <!-- ===================================================================== -->
+  <div id="bookmarkletModal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🪄</span>
+          <span>1-Click Bookmarklet Setup</span>
+        </div>
+        <button data-close-modal class="btn btn-ghost btn-icon">✕</button>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:1rem;font-size:0.85rem;color:var(--text-secondary)">
+        <p>
+          When hosted on static sites like GitHub Pages or Firebase without the local Python proxy, the Bookmarklet runs directly inside your open <strong>suno.com</strong> tab so CORS never blocks decryption:
+        </p>
+
+        <ol style="padding-left:1.25rem;display:flex;flex-direction:column;gap:0.6rem">
+          <li>Press <kbd style="background:rgba(0,0,0,0.6);padding:2px 6px;border-radius:4px;color:#fde68a">Ctrl+Shift+B</kbd> (or <kbd style="background:rgba(0,0,0,0.6);padding:2px 6px;border-radius:4px;color:#fde68a">Cmd+Shift+B</kbd> on Mac) to show your browser Bookmarks Bar.</li>
+          <li>Drag the orange <strong>Grab Song & Launch Studio</strong> button onto your bookmarks bar.</li>
+          <li>Open any <strong>suno.com/song/...</strong> page and click the bookmark!</li>
+          <li>Download the decrypted M4A/WAV immediately, or drop the file into this Studio for <strong>4-Track Neural HTDemucs Stems</strong>, <strong>Mastering FX</strong>, and <strong>Karaoke Video</strong>!</li>
+        </ol>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end">
+        <button data-close-modal class="btn btn-secondary btn-sm">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- ===================================================================== -->
+  <!-- FOOTER                                                                -->
+  <!-- ===================================================================== -->
+  <footer class="app-footer">
+    <div class="app-container footer-inner">
+      <div class="footer-top">
+        <div>
+          <strong style="color:var(--text-primary);font-size:0.95rem">Suno Downloader Pro • 2026 Studio Edition</strong>
+          <p style="font-size:0.775rem;color:var(--text-muted);margin-top:0.25rem">
+            Hybrid HTDemucs v4 neural stem separator, audio trimmer, mastering FX, ID3v2.3 tagger, ZIP packager &amp; 1080p karaoke video studio.
+          </p>
+        </div>
+
+        <div class="footer-links">
+          <a href="#" onclick="event.preventDefault(); app.openHelperModal()">CLI &amp; AI Helper</a>
+          <a href="#" onclick="event.preventDefault(); document.getElementById('bookmarkletModal').classList.add('open')">Bookmarklet</a>
+          <a href="https://suno.com" target="_blank" rel="noopener noreferrer">Suno.com ↗</a>
+        </div>
+      </div>
+
+      <div class="footer-bottom">
+        <span>Static PWA ready for GitHub Pages, Firebase Hosting, Cloudflare Pages, Netlify &amp; Vercel.</span>
+        <span>Powered by Meta HTDemucs v4 (PyTorch + WebGPU ONNX)</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

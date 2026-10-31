@@ -1,0 +1,20 @@
+{
+  "name": "Suno Downloader Pro • 2026 Studio Edition",
+  "short_name": "Suno Studio",
+  "description": "High-fidelity Suno AI audio decryptor, HTDemucs v4 4-stem neural separator, waveform trimmer, mastering FX, ID3 tagger, and karaoke video studio.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a0c13",
+  "theme_color": "#f59e0b",
+  "categories": ["music", "multimedia", "utilities"],
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
