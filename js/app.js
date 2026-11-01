@@ -3,23 +3,23 @@
  * Main Application Orchestrator
  */
 
-import { OmniAPI } from './omni-api.js?v=2026.5';
-import { VideoDemuxer } from './video-demuxer.js?v=2026.5';
-import { SunoAPI } from './suno-api.js?v=2026.5';
-import { CryptoEngine } from './crypto-engine.js?v=2026.5';
-import { AudioConverter } from './audio-converter.js?v=2026.5';
-import { Mp3Encoder } from './mp3-encoder.js?v=2026.5';
-import { ID3Writer } from './id3-writer.js?v=2026.5';
-import { LyricsUtils } from './lyrics-utils.js?v=2026.5';
-import { VaultDB } from './vault-db.js?v=2026.5';
-import { StemEngine } from './stem-engine.js?v=2026.5';
-import { StemMixer } from './stem-mixer.js?v=2026.5';
-import { AudioFXEngine } from './audio-fx.js?v=2026.5';
-import { ZipPackager } from './zip-packager.js?v=2026.5';
-import { VideoGenerator } from './video-generator.js?v=2026.5';
-import { BookmarkletEngine } from './bookmarklet.js?v=2026.5';
-import { StorageManager } from './storage.js?v=2026.5';
-import { PlayerEngine } from './player.js?v=2026.5';
+import { OmniAPI } from './omni-api.js?v=2026.9';
+import { VideoDemuxer } from './video-demuxer.js?v=2026.9';
+import { SunoAPI } from './suno-api.js?v=2026.9';
+import { CryptoEngine } from './crypto-engine.js?v=2026.9';
+import { AudioConverter } from './audio-converter.js?v=2026.9';
+import { Mp3Encoder } from './mp3-encoder.js?v=2026.9';
+import { ID3Writer } from './id3-writer.js?v=2026.9';
+import { LyricsUtils } from './lyrics-utils.js?v=2026.9';
+import { VaultDB } from './vault-db.js?v=2026.9';
+import { StemEngine } from './stem-engine.js?v=2026.9';
+import { StemMixer } from './stem-mixer.js?v=2026.9';
+import { AudioFXEngine } from './audio-fx.js?v=2026.9';
+import { ZipPackager } from './zip-packager.js?v=2026.9';
+import { VideoGenerator } from './video-generator.js?v=2026.9';
+import { BookmarkletEngine } from './bookmarklet.js?v=2026.9';
+import { StorageManager } from './storage.js?v=2026.9';
+import { PlayerEngine } from './player.js?v=2026.9';
 
 class App {
   constructor() {

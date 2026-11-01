@@ -21,7 +21,7 @@ export class OmniAPI {
     // Tier 0: Same-Origin Laravel Server
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 1200);
+      const timer = setTimeout(() => controller.abort(), 5000);
       const res = await fetch('/api/capabilities', { signal: controller.signal });
       clearTimeout(timer);
       if (res.ok) {
@@ -37,27 +37,29 @@ export class OmniAPI {
       }
     } catch (e) {}
 
-    // Tier 1: Local Python OmniHelper on port 8899
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 1200);
-      const res = await fetch(`${OmniAPI.LOCAL_PROXY_URL}/api/capabilities`, {
-        signal: controller.signal
-      });
-      clearTimeout(timer);
-      if (res.ok) {
-        const data = await res.json();
-        OmniAPI._localActive = true;
-        return {
-          active: true,
-          server: 'Local Python Helper',
-          ytdl: Boolean(data.ytdl || data.yt_dlp),
-          ffmpeg: Boolean(data.ffmpeg),
-          demucs: data.demucs || { available: false }
-        };
+    // Tier 1: Local Python OmniHelper on port 8899 (only if running as static PWA or file:)
+    if (typeof window !== 'undefined' && (window.location.protocol === 'file:' || window.location.port === '8899' || !window.location.host.includes(':'))) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 2000);
+        const res = await fetch(`${OmniAPI.LOCAL_PROXY_URL}/api/capabilities`, {
+          signal: controller.signal
+        });
+        clearTimeout(timer);
+        if (res.ok) {
+          const data = await res.json();
+          OmniAPI._localActive = true;
+          return {
+            active: true,
+            server: 'Local Python Helper',
+            ytdl: Boolean(data.ytdl || data.yt_dlp),
+            ffmpeg: Boolean(data.ffmpeg),
+            demucs: data.demucs || { available: false }
+          };
+        }
+      } catch (e) {
+        OmniAPI._localActive = false;
       }
-    } catch (e) {
-      OmniAPI._localActive = false;
     }
 
     return {
@@ -66,6 +68,34 @@ export class OmniAPI {
       ffmpeg: false,
       demucs: { available: false, engine: 'In-Browser ONNX WebGPU/WASM' }
     };
+  }
+
+  /**
+   * Sanitizes URLs by stripping tracking queries and canonicalizing shortlinks
+   * @param {string} raw
+   * @returns {string}
+   */
+  static cleanUrl(raw) {
+    let clean = String(raw || '').trim();
+    if (!clean) return '';
+
+    // Unshorten YouTube shortlinks
+    const ytShort = clean.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/i);
+    if (ytShort) {
+      clean = `https://www.youtube.com/watch?v=${ytShort[1]}`;
+    }
+
+    clean = clean.replace(/m\.youtube\.com/i, 'www.youtube.com');
+
+    // Strip tracking queries
+    try {
+      const u = new URL(clean);
+      const dropParams = ['si', 'feature', 'utm_source', 'utm_medium', 'utm_campaign', 'fbclid', 'igshid', 'share_id', 'locale'];
+      dropParams.forEach((k) => u.searchParams.delete(k));
+      return u.toString();
+    } catch (e) {
+      return clean;
+    }
   }
 
   /**
@@ -119,7 +149,7 @@ export class OmniAPI {
    * @returns {Promise<Object>}
    */
   static async resolveUrl(url) {
-    const clean = String(url || '').trim();
+    const clean = OmniAPI.cleanUrl(url);
     if (!clean) throw new Error('Empty URL provided.');
 
     const q = encodeURIComponent(clean);

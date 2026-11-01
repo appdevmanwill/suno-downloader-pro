@@ -1,10 +1,10 @@
 /**
  * NTK OmniStream Studio - In-Browser Video & Audio Demuxer
- * Extracts lossless PCM AudioBuffers and video frame poster artwork directly
- * in-browser from video containers (.mp4, .mov, .mkv, .webm, .avi) without external server uploads.
+ * High-performance, non-blocking video to PCM audio & poster frame extractor.
+ * Processes local video files (.mp4, .mov, .mkv, .webm, .avi) without freezing the UI or uploading data.
  */
 
-import { AudioConverter } from './audio-converter.js?v=2026.5';
+import { AudioConverter } from './audio-converter.js?v=2026.8';
 
 export class VideoDemuxer {
   /**
@@ -19,25 +19,35 @@ export class VideoDemuxer {
   }
 
   /**
-   * Demuxes audio and captures a poster frame from a local video File
+   * Non-blocking video demuxer: concurrently extracts poster frame and decodes audio track.
    * @param {File} file
    * @param {Function} [onProgress]
    * @returns {Promise<{ audioBuffer: AudioBuffer, thumbnailDataUrl: string, duration: number, width: number, height: number }>}
    */
   static async demux(file, onProgress = () => {}) {
-    onProgress(15, `Reading video file "${file.name}"...`);
+    onProgress(10, `Reading "${file.name}" (${(file.size / (1024 * 1024)).toFixed(1)} MB)...`);
+    
+    // Concurrently trigger thumbnail capture to minimize wait time
+    const thumbPromise = VideoDemuxer.captureThumbnail(file);
+
+    // Yield to main thread so UI stays fluid
+    await new Promise((r) => setTimeout(r, 10));
+
+    onProgress(30, 'Reading video stream buffer...');
     const arrayBuf = await file.arrayBuffer();
 
-    onProgress(35, 'Decoding audio track from video stream...');
+    await new Promise((r) => setTimeout(r, 10));
+    onProgress(50, 'Decoding lossless audio track via Web Audio engine...');
+
     let audioBuffer = null;
     try {
-      audioBuffer = await AudioConverter.decodeAudioData(arrayBuf.slice(0));
+      audioBuffer = await AudioConverter.decodeAudioData(arrayBuf);
     } catch (err) {
       throw new Error(`Failed to decode audio track from video: ${err.message}. Ensure the video has an audio stream.`);
     }
 
-    onProgress(70, 'Capturing video snapshot thumbnail...');
-    const meta = await VideoDemuxer.captureThumbnail(file);
+    onProgress(85, 'Finalizing video poster artwork...');
+    const meta = await thumbPromise;
 
     onProgress(100, 'Video demuxing complete!');
     return {
@@ -78,10 +88,9 @@ export class VideoDemuxer {
       const timer = setTimeout(() => {
         cleanup();
         resolve(fallback);
-      }, 5000);
+      }, 6000);
 
       video.onloadedmetadata = () => {
-        // Seek to 1 second or 15% into video for representative thumbnail
         const seekTime = Math.min(1.5, (video.duration || 5) * 0.15);
         video.currentTime = seekTime;
       };
