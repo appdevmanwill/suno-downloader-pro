@@ -135,6 +135,16 @@ export class SunoAPI {
    * @returns {Promise<boolean>}
    */
   static async checkLocalProxy() {
+    // Tier 0: Same-Origin Laravel Backend
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 1200);
+      const res = await fetch('/api/health', { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) return true;
+    } catch (e) {}
+
+    // Tier 1: Local Python helper on port 8899
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 1200);

@@ -24,23 +24,43 @@ export class StemEngine {
    * @returns {Promise<{ available: boolean, device: string, engine: string }>}
    */
   static async checkLocalDemucs() {
+    // Tier 0: Same-Origin Backend
     try {
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 1400);
-      const res = await fetch(`${StemEngine.LOCAL_BASE}/api/stems/capabilities`, {
-        signal: controller.signal
-      });
+      const timer = setTimeout(() => controller.abort(), 1200);
+      const res = await fetch('/api/stems/capabilities', { signal: controller.signal });
       clearTimeout(timer);
       if (res.ok) {
         const data = await res.json();
         return {
           available: Boolean(data.available),
-          device: data.device || 'cpu',
-          engine: data.engine || 'htdemucs-v4'
+          device: data.device || 'browser',
+          engine: data.engine || 'In-Browser ONNX WebGPU/WASM'
         };
       }
     } catch (e) {}
-    return { available: false, device: 'none', engine: 'none' };
+
+    // Tier 1: Local Python Helper on Port 8899 (only if not on a server or if local active)
+    if (typeof window !== 'undefined' && (window.location.protocol === 'file:' || (window.location.port !== '8899' && StemEngine._activeBase === StemEngine.LOCAL_BASE))) {
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 1400);
+        const res = await fetch(`${StemEngine.LOCAL_BASE}/api/stems/capabilities`, {
+          signal: controller.signal
+        });
+        clearTimeout(timer);
+        if (res.ok) {
+          const data = await res.json();
+          StemEngine._activeBase = StemEngine.LOCAL_BASE;
+          return {
+            available: Boolean(data.available),
+            device: data.device || 'cpu',
+            engine: data.engine || 'htdemucs-v4'
+          };
+        }
+      } catch (e) {}
+    }
+    return { available: false, device: 'none', engine: 'In-Browser ONNX WebGPU/WASM' };
   }
 
   /**

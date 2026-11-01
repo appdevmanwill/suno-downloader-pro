@@ -1,6 +1,6 @@
 /**
  * NTK OmniStream Studio - Universal Stream & Link Resolver
- * Connects to local OmniHelper (yt-dlp + PyTorch) with fallback to in-browser parsing
+ * Multi-tier connectivity: Same-Origin Laravel Server -> Local OmniHelper -> In-Browser Fallbacks
  */
 
 export class OmniAPI {
@@ -14,10 +14,30 @@ export class OmniAPI {
   static _localActive = null;
 
   /**
-   * Probes whether the local OmniHelper is running
+   * Probes whether the Laravel backend or local Python helper is running
    * @returns {Promise<{ active: boolean, ytdl: boolean, ffmpeg: boolean, demucs: Object }>}
    */
   static async checkLocalHelper() {
+    // Tier 0: Same-Origin Laravel Server
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 1200);
+      const res = await fetch('/api/capabilities', { signal: controller.signal });
+      clearTimeout(timer);
+      if (res.ok) {
+        const data = await res.json();
+        OmniAPI._localActive = true;
+        return {
+          active: true,
+          server: data.server || 'Laravel Server',
+          ytdl: Boolean(data.yt_dlp),
+          ffmpeg: Boolean(data.ffmpeg),
+          demucs: data.demucs || { available: false, engine: 'In-Browser ONNX WebGPU/WASM' }
+        };
+      }
+    } catch (e) {}
+
+    // Tier 1: Local Python OmniHelper on port 8899
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 1200);
@@ -30,7 +50,8 @@ export class OmniAPI {
         OmniAPI._localActive = true;
         return {
           active: true,
-          ytdl: Boolean(data.ytdl),
+          server: 'Local Python Helper',
+          ytdl: Boolean(data.ytdl || data.yt_dlp),
           ffmpeg: Boolean(data.ffmpeg),
           demucs: data.demucs || { available: false }
         };
@@ -38,6 +59,7 @@ export class OmniAPI {
     } catch (e) {
       OmniAPI._localActive = false;
     }
+
     return {
       active: false,
       ytdl: false,
@@ -100,9 +122,21 @@ export class OmniAPI {
     const clean = String(url || '').trim();
     if (!clean) throw new Error('Empty URL provided.');
 
-    // 1. Try local helper (yt-dlp)
+    const q = encodeURIComponent(clean);
+
+    // Tier 0: Same-Origin Laravel Server
     try {
-      const q = encodeURIComponent(clean);
+      const res = await fetch(`/api/omni/resolve?url=${q}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data && !data.error) {
+          return data;
+        }
+      }
+    } catch (e) {}
+
+    // Tier 1: Local Python OmniHelper
+    try {
       const res = await fetch(`${OmniAPI.LOCAL_PROXY_URL}/api/omni/resolve?url=${q}`);
       if (res.ok) {
         const data = await res.json();
@@ -112,13 +146,13 @@ export class OmniAPI {
       }
     } catch (e) {}
 
-    // 2. Direct Suno fallback if local helper is offline
+    // Tier 2: Direct Suno fallback
     const classification = OmniAPI.classifyUrl(clean);
     if (classification.platform === 'Suno AI') {
       return OmniAPI.resolveSunoDirect(clean);
     }
 
-    // 3. Direct media URL fallback
+    // Tier 3: Direct media URL fallback
     if (classification.platform === 'Direct Media File') {
       const filename = clean.split('/').pop().split('?')[0] || 'Media_Track';
       const ext = filename.split('.').pop().toLowerCase();
@@ -143,8 +177,7 @@ export class OmniAPI {
     }
 
     throw new Error(
-      `Could not resolve "${classification.platform}" link directly in browser without local OmniHelper. ` +
-      `Start the local helper ("python helper/omni_helper.py --serve") for 100% universal extraction across all sites.`
+      `Could not resolve "${classification.platform}" link. Verify the URL or check server connectivity.`
     );
   }
 
@@ -194,7 +227,7 @@ export class OmniAPI {
     // Single Clip
     let title = `Suno_${uuid.slice(0, 8)}`;
     let duration = 180;
-    let image = `https://cdn2.suno.ai/image_large_{uuid}.jpeg`;
+    let image = `https://cdn2.suno.ai/image_large_${uuid}.jpeg`;
     let prompt = '';
     let tags = 'Suno AI Generation';
 
@@ -231,17 +264,31 @@ export class OmniAPI {
   }
 
   /**
-   * Starts an asynchronous download job via local OmniHelper
+   * Starts a download job
    */
   static async startDownload(url, targetFormat = 'mp3', audioOnly = false) {
+    // Tier 0: Same-Origin Laravel Server
+    try {
+      const res = await fetch('/api/omni/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, format: targetFormat, is_audio_only: audioOnly })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.job_id) return data.job_id;
+      }
+    } catch (e) {}
+
+    // Tier 1: Local Python OmniHelper
     const res = await fetch(`${OmniAPI.LOCAL_PROXY_URL}/api/omni/download`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: jsonStringifySafe({ url, format: targetFormat, audioOnly })
+      body: JSON.stringify({ url, format: targetFormat, audioOnly })
     });
-    if (!res.ok) throw new Error('Failed to dispatch download task to local OmniHelper.');
+    if (!res.ok) throw new Error('Failed to dispatch download task to OmniStream server.');
     const data = await res.json();
-    return data.jobId;
+    return data.jobId || data.job_id;
   }
 
   /**
@@ -252,15 +299,35 @@ export class OmniAPI {
     while (attempts < 300) {
       attempts++;
       await new Promise((r) => setTimeout(r, 800));
+
+      // Tier 0: Check same origin
+      try {
+        const res = await fetch(`/api/omni/status/${jobId}`);
+        if (res.ok) {
+          const job = await res.json();
+          onProgress(job.progress || 0, job.message || 'Processing stream...');
+          if (job.status === 'completed' || job.status === 'complete') {
+            return job.download_url || `/api/omni/stream/${jobId}`;
+          }
+          if (job.status === 'failed' || job.status === 'error') {
+            throw new Error(job.error || 'Download task failed.');
+          }
+          continue;
+        }
+      } catch (e) {
+        if (e.message && !e.message.includes('Failed to fetch')) throw e;
+      }
+
+      // Tier 1: Check local helper
       try {
         const res = await fetch(`${OmniAPI.LOCAL_PROXY_URL}/api/omni/status/${jobId}`);
         if (res.ok) {
           const job = await res.json();
           onProgress(job.percent || 0, job.message || 'Processing...');
-          if (job.status === 'complete') {
+          if (job.status === 'complete' || job.status === 'completed') {
             return `${OmniAPI.LOCAL_PROXY_URL}/api/omni/download-file/${jobId}`;
           }
-          if (job.status === 'error') {
+          if (job.status === 'error' || job.status === 'failed') {
             throw new Error(job.error || job.message || 'Download task failed.');
           }
         }
@@ -274,19 +341,25 @@ export class OmniAPI {
   }
 
   /**
-   * Saves cookies to local helper for bot-free downloads
+   * Saves cookies to server for private downloads
    */
   static async saveCookies(cookiesText) {
+    // Tier 0: Same-Origin Laravel Server
+    try {
+      const res = await fetch('/api/omni/cookies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cookies: cookiesText })
+      });
+      if (res.ok) return res.json();
+    } catch (e) {}
+
+    // Tier 1: Local Python OmniHelper
     const res = await fetch(`${OmniAPI.LOCAL_PROXY_URL}/api/omni/cookies`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ cookies: cookiesText })
     });
-    if (!res.ok) throw new Error('Failed to save cookies to local helper.');
     return res.json();
   }
-}
-
-function jsonStringifySafe(obj) {
-  return JSON.stringify(obj);
 }
